@@ -1,0 +1,10 @@
+pandas
+numpy
+scikit-learn
+SQLAlchemy
+psycopg[binary]
+python-dotenv
+rapidfuzz
+pytest
+Flask
+Authlib

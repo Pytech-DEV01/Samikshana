@@ -1,0 +1,53 @@
+{
+  "realm": "sahayog",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "citizen",
+        "description": "Public, read-only portal access"
+      },
+      {
+        "name": "mp",
+        "description": "MP / authority portal access"
+      },
+      {
+        "name": "contractor",
+        "description": "Contractor portal access"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "sahayog-web",
+      "name": "Sahayog web portal",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:5000/auth/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:5000"
+      ],
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "roles",
+        "profile",
+        "email"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5000/*"
+      }
+    }
+  ]
+}

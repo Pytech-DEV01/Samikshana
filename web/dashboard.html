@@ -3,110 +3,127 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Explore MPLADS allocations, works, expenditure, contractors and risk indicators.">
-  <title>Sahayog · MPLADS Dashboard</title>
+  <meta name="description" content="Sahayog — role-based MPLADS workspace for citizens, MP offices and contractors.">
+  <title>Sahayog · Workspace</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/portal.css">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/dashboard.css">
 </head>
-<body>
-  <div class="portal">
-    <aside class="sidebar" id="sidebar">
-      <a class="brand" href="#overview" aria-label="Sahayog dashboard">
-        <span class="brand-mark" aria-hidden="true">S</span>
-        <span class="brand-copy"><strong>Sahayog</strong><small>MPLADS transparency</small></span>
+<body class="dashboard-page">
+  <div class="app" id="app">
+    <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
+      <a class="side-brand" href="dashboard.html">
+        <span class="side-logo" aria-hidden="true">
+          <svg viewBox="0 0 64 64">
+            <circle cx="32" cy="32" r="27" fill="none" stroke="currentColor" stroke-width="2.4"/>
+            <circle cx="32" cy="32" r="5" fill="currentColor"/>
+            <g stroke="currentColor" stroke-width="1.4">
+              <line x1="32" y1="5" x2="32" y2="59"/>
+              <line x1="32" y1="5" x2="32" y2="59" transform="rotate(30 32 32)"/>
+              <line x1="32" y1="5" x2="32" y2="59" transform="rotate(60 32 32)"/>
+              <line x1="32" y1="5" x2="32" y2="59" transform="rotate(90 32 32)"/>
+              <line x1="32" y1="5" x2="32" y2="59" transform="rotate(120 32 32)"/>
+              <line x1="32" y1="5" x2="32" y2="59" transform="rotate(150 32 32)"/>
+            </g>
+          </svg>
+        </span>
+        <span class="side-wordmark">
+          <span class="side-name">Sahayog</span>
+          <span class="side-sub">MPLADS Portal</span>
+        </span>
       </a>
-      <p class="nav-label">WORKSPACE</p>
-      <nav class="menu" aria-label="Dashboard menu">
-        <button type="button" class="menu-link is-active" data-view="overview"><span>◫</span> Overview</button>
-        <button type="button" class="menu-link" data-view="mps"><span>♙</span> MPs &amp; funds</button>
-        <button type="button" class="menu-link" data-view="contractors"><span>⌂</span> Contractors</button>
-        <button type="button" class="menu-link" data-view="works"><span>▤</span> Works &amp; payments</button>
-        <button type="button" class="menu-link" data-view="reports"><span>⌁</span> Reports &amp; risk</button>
-        <button type="button" class="menu-link" data-view="locations"><span>◎</span> Locations</button>
-      </nav>
-      <div class="sidebar-bottom">
-        <div class="data-status"><span class="status-dot"></span><span>Dataset snapshot<strong id="snapshotDate"></strong></span></div>
-        <button class="sign-out" id="logoutBtn" type="button">Sign out</button>
+
+      <div class="side-session">
+        <span class="side-session-label">Signed in as</span>
+        <div class="side-session-card">
+          <span class="avatar" id="sideAvatar">A</span>
+          <span class="side-session-text">
+            <strong id="sideName">—</strong>
+            <span id="sideRole">—</span>
+          </span>
+        </div>
+      </div>
+
+      <nav class="side-nav" id="sideNav" aria-label="Workspace sections"></nav>
+
+      <div class="access-card" id="accessCard">
+        <span class="access-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="4" y="10.5" width="16" height="9.5" rx="2"/>
+            <path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/>
+          </svg>
+          Your access
+        </span>
+        <p id="accessCopy">—</p>
+      </div>
+
+      <div class="side-foot">
+        <span class="side-foot-note" id="sideFootNote">Prototype build · demo data</span>
+        <button class="logout" id="logoutBtn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M14 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2"/>
+            <path d="M10 12h10M17 9l3 3-3 3"/>
+          </svg>
+          Log out
+        </button>
       </div>
     </aside>
 
-    <main class="main">
+    <div class="scrim" id="scrim" aria-hidden="true"></div>
+
+    <div class="main">
       <header class="topbar">
-        <button type="button" class="mobile-menu" id="menuToggle" aria-label="Open menu">☰</button>
-        <div class="breadcrumbs"><span>Sahayog</span><span>/</span><strong id="pageLabel">Overview</strong></div>
-        <div class="user-badge"><span class="avatar" id="userAvatar">A</span><span><strong id="userName"></strong><small id="userRole"></small></span></div>
+        <button class="menu-btn" id="menuBtn" type="button" aria-label="Open navigation">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16"/>
+          </svg>
+        </button>
+        <div class="topbar-title">
+          <span class="crumb">MPLADS Workspace</span>
+          <h1 id="viewTitle">Overview</h1>
+        </div>
+        <div class="topbar-right">
+          <span class="role-pill" id="rolePill">
+            <span class="role-pill-dot" aria-hidden="true"></span>
+            <span id="rolePillText">—</span>
+          </span>
+          <span class="topbar-date" id="topDate">—</span>
+        </div>
       </header>
 
-      <div class="content">
-        <section class="view-panel is-visible" id="view-overview">
-          <div class="page-heading">
-            <div><p class="eyebrow">MPLADS · DATA EXPLORER</p><h1>Overview</h1><p class="subheading">A national view of recommendations, completed works and public expenditure.</p></div>
-            <span class="snapshot-chip">Data as of <strong id="snapshotDateHeading"></strong></span>
-          </div>
-          <div class="metrics" id="overviewMetrics"></div>
-          <div class="chart-grid">
-            <article class="panel chart-panel"><div class="panel-heading"><div><h2>Monthly activity</h2><p>Recommended and completed works by recorded date</p></div></div><div id="activityChart" class="chart"></div></article>
-            <article class="panel chart-panel"><div class="panel-heading"><div><h2>Payment status</h2><p>Expenditure transaction records</p></div></div><div id="paymentChart" class="chart chart-short"></div><div id="paymentLegend" class="payment-legend"></div></article>
-          </div>
-          <article class="panel"><div class="panel-heading"><div><h2>MPs by expenditure</h2><p>Highest reported expenditure in the supplied MP summary</p></div><button class="text-action" type="button" data-open-view="mps">Browse all MPs →</button></div><div id="mpChart" class="chart chart-wide"></div></article>
-          <p class="footnote">Amounts are in Indian rupees. Summary totals and individual transaction totals are shown separately because they are reported in different source exports.</p>
-        </section>
-
-        <section class="view-panel" id="view-mps">
-          <div class="page-heading"><div><p class="eyebrow">PUBLIC REPRESENTATIVES</p><h1>MPs &amp; funds</h1><p class="subheading">Allocation, recommendations, expenditure, completion and payment indicators by MP.</p></div></div>
-          <div class="metrics" id="mpMetrics"></div>
-          <div class="filter-row"><label class="search"><span>⌕</span><input id="mpSearch" type="search" placeholder="Search MP, constituency or state"></label><select id="mpStateFilter" aria-label="Filter MPs by state"><option value="">All states</option></select><span class="result-count" id="mpCount"></span></div>
-          <article class="panel table-panel"><div class="table-scroll"><table><thead><tr><th>MP / constituency</th><th>State · House</th><th>Allocated</th><th>Recommended</th><th>Expenditure</th><th>Completed</th><th>Completion</th><th>Risk</th><th></th></tr></thead><tbody id="mpTable"></tbody></table></div><div class="pagination" id="mpPagination"></div></article>
-        </section>
-
-        <section class="view-panel" id="view-contractors">
-          <div class="page-heading"><div><p class="eyebrow">VENDOR NETWORK</p><h1>Contractors</h1><p class="subheading">Contractor profiles aggregate payment records and link to reported MPs and locations.</p></div></div>
-          <div class="metrics compact-metrics" id="contractorMetrics"></div>
-          <div class="filter-row"><label class="search"><span>⌕</span><input id="contractorSearch" type="search" placeholder="Search contractor, MP, constituency or state"></label><span class="result-count" id="contractorCount"></span></div>
-          <article class="panel table-panel"><div class="table-scroll"><table><thead><tr><th>Contractor / vendor</th><th>Payment records</th><th>Expenditure total</th><th>Paid</th><th>In progress</th><th>Reported locations</th><th></th></tr></thead><tbody id="contractorTable"></tbody></table></div><div class="pagination" id="contractorPagination"></div></article>
-          <p class="footnote">Names are grouped case-insensitively after whitespace normalization. These records do not establish legal identity or beneficial ownership.</p>
-        </section>
-
-        <section class="view-panel" id="view-works">
-          <div class="page-heading"><div><p class="eyebrow">PROJECT DELIVERY</p><h1>Works &amp; payments</h1><p class="subheading">Explore the reported work pipeline and transaction status in the supplied exports.</p></div></div>
-          <div class="metrics" id="worksMetrics"></div>
-          <div class="chart-grid">
-            <article class="panel chart-panel"><div class="panel-heading"><div><h2>Work pipeline</h2><p>Recommendation and completion records</p></div></div><div id="pipelineChart" class="chart"></div></article>
-            <article class="panel chart-panel"><div class="panel-heading"><div><h2>Expenditure vs MP summary</h2><p>Separate source totals; do not add these figures</p></div></div><div id="amountChart" class="chart"></div></article>
-          </div>
-          <article class="panel info-panel"><span class="info-icon">i</span><div><h2>How to read these figures</h2><p>Completed and recommended counts come from individual work exports. MP allocation and expenditure come from the MP summary. Transaction amount is aggregated from the expenditure export; these datasets may differ in reporting scope and should not be treated as a reconciliation.</p></div></article>
-        </section>
-
-        <section class="view-panel" id="view-reports">
-          <div class="page-heading"><div><p class="eyebrow">MONITORING &amp; REVIEW</p><h1>Reports &amp; risk</h1><p class="subheading">Explainable review signals calculated from the snapshot, not official audit findings.</p></div></div>
-          <div class="metrics compact-metrics" id="riskMetrics"></div>
-          <div class="chart-grid">
-            <article class="panel chart-panel"><div class="panel-heading"><div><h2>Reported payment timeline</h2><p>Transaction counts by expenditure month</p></div></div><div id="paymentTimelineChart" class="chart"></div></article>
-            <article class="panel report-note"><p class="eyebrow">RISK METHODOLOGY</p><h2>Review indicators, not allegations</h2><p><strong>Delivery watch:</strong> completion rate below 25% where at least 10 works are recommended.</p><p><strong>Payment watch:</strong> more than 10% of reported transactions are pending/in progress, with at least 5 transactions.</p><p><strong>Utilization watch:</strong> expenditure is below 40% of recommended funds, with at least 10 recommended works.</p><p>Two or more indicators are labelled “Review”; one is “Watch”. The labels identify records for further review and do not imply fraud or misconduct.</p></article>
-          </div>
-          <article class="panel table-panel"><div class="panel-heading table-title"><div><h2>MPs to review</h2><p>Ranked by count of applicable indicators</p></div><span class="table-caption">Top 100 flagged MPs · select Details for source figures</span></div><div class="table-scroll"><table><thead><tr><th>MP / constituency</th><th>Completion</th><th>Expenditure / recommended</th><th>Pending payments</th><th>Indicators</th><th>Level</th><th></th></tr></thead><tbody id="riskTable"></tbody></table></div></article>
-        </section>
-
-        <section class="view-panel" id="view-locations">
-          <div class="page-heading"><div><p class="eyebrow">GEOGRAPHIC COVERAGE</p><h1>Locations</h1><p class="subheading">State-level distributions from the supplied exports. Use map links to open a location search.</p></div></div>
-          <div class="filter-row"><label class="search"><span>⌕</span><input id="locationSearch" type="search" placeholder="Search a state or territory"></label><span class="result-count" id="locationCount"></span></div>
-          <div class="location-grid" id="locationGrid"></div>
-          <p class="footnote">The exports contain state, constituency and implementing-agency text, but no latitude/longitude. Map links search the place name and are not verified work-site coordinates.</p>
-        </section>
-      </div>
-    </main>
+      <main class="view" id="view" tabindex="-1"></main>
+    </div>
   </div>
 
-  <dialog id="profileDialog" class="profile-dialog">
-    <div class="dialog-head"><div><p class="eyebrow" id="dialogEyebrow"></p><h2 id="dialogTitle"></h2></div><button type="button" id="dialogClose" class="icon-button" aria-label="Close details">×</button></div>
-    <div id="dialogContent"></div>
-  </dialog>
+  <div class="modal-root" id="modalRoot" hidden>
+    <div class="modal-backdrop" data-action="close-modal"></div>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" id="modal">
+      <header class="modal-head">
+        <div>
+          <span class="modal-eyebrow" id="modalEyebrow"></span>
+          <h2 id="modalTitle"></h2>
+        </div>
+        <button class="icon-btn" type="button" data-action="close-modal" aria-label="Close dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M6 6l12 12M18 6 6 18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="modal-body" id="modalBody"></div>
+      <footer class="modal-foot" id="modalFoot"></footer>
+    </div>
+  </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden>
+    <svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M20 6 9 17l-5-5"/>
+    </svg>
+    <span id="toastText"></span>
+  </div>
+
   <script src="assets/js/auth.js"></script>
-  <script src="assets/js/dashboard-data.js"></script>
-  <script src="assets/js/portal.js"></script>
+  <script src="assets/js/demo-data.js"></script>
+  <script src="assets/js/dashboard.js"></script>
 </body>
 </html>

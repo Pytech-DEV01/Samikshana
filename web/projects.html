@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="">
+  <meta name="description" content="Assigned MPLADS projects and dated contractor progress reports.">
+  <title>Sahayog · Project reporting</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/portal.css">
+  <link rel="stylesheet" href="assets/css/project-workflow.css">
+</head>
+<body>
+  <div class="portal">
+    <aside class="sidebar">
+      <a class="brand" href="/projects" aria-label="Sahayog project workspace">
+        <span class="brand-mark" aria-hidden="true">S</span>
+        <span class="brand-copy"><strong>Sahayog</strong><small>MPLADS project reporting</small></span>
+      </a>
+      <p class="nav-label">WORKSPACE</p>
+      <nav class="menu" aria-label="Project workspace">
+        <a class="menu-link is-active" href="/projects"><span>▤</span> Project reporting</a>
+        <a class="menu-link" href="/dashboard.html" id="dashboardLink"><span>◫</span> Data dashboard</a>
+        <a class="menu-link" href="/past-works" id="pastWorksLink" hidden><span>◷</span> Past works</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="data-status"><span class="status-dot"></span><span>Signed in as<strong id="sidebarRole"></strong></span></div>
+        <button class="sign-out" id="logoutBtn" type="button">Sign out</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="breadcrumbs"><span>Sahayog</span><span>/</span><strong>Project reporting</strong></div>
+        <div class="user-badge"><span class="avatar" id="userAvatar">S</span><span><strong id="userName"></strong><small id="userRole"></small></span></div>
+      </header>
+      <div class="content">
+        <section class="page-heading">
+          <div>
+            <p class="eyebrow">PROJECT DELIVERY · FIELD UPDATES</p>
+            <h1 id="pageTitle">Project reporting</h1>
+            <p class="subheading" id="pageDescription">See project schedules and verified assignment details.</p>
+          </div>
+        </section>
+
+        <section class="panel assignment-panel" id="assignmentPanel" hidden>
+          <div class="panel-heading">
+            <div><h2>Assign a project</h2><p>Only approved contractors can access projects assigned to their Keycloak email.</p></div>
+          </div>
+          <form id="assignmentForm" class="workflow-form">
+            <label>Project title<input name="title" maxlength="180" required></label>
+            <label>Sanctioned amount (₹)<input name="sanctioned_amount" type="number" min="0.01" step="0.01" required></label>
+            <label>Start date<input name="start_date" type="date" required></label>
+            <label>End date<input name="end_date" type="date" required></label>
+            <label>MP name<input name="mp_name" maxlength="160" required></label>
+            <label>Constituency<input name="constituency" maxlength="160" required></label>
+            <label>State<input name="state" maxlength="100" required></label>
+            <label>District<input name="district" maxlength="100" required></label>
+            <label class="wide-field">Project location<input name="location" maxlength="300" placeholder="Village, ward, facility or site" required></label>
+            <label>Contractor account email<input name="contractor_email" type="email" maxlength="254" required></label>
+            <label>Contractor / firm name<input name="contractor_name" maxlength="160"></label>
+            <label class="wide-field">Scope / description<textarea name="description" rows="3" maxlength="2000"></textarea></label>
+            <button class="primary-button" type="submit">Assign project</button>
+            <p class="form-message wide-field" id="assignmentMessage" role="status"></p>
+          </form>
+        </section>
+
+        <div class="workspace-grid">
+          <section class="project-list-column">
+            <div class="section-title"><div><h2 id="projectListTitle">Projects</h2><p id="projectCount">Loading assignments…</p></div></div>
+            <div class="project-list" id="projectList" aria-live="polite"></div>
+            <p class="form-message" id="loadMessage" role="status"></p>
+          </section>
+
+          <section class="panel project-detail" id="projectDetail" hidden>
+            <div id="projectSummary"></div>
+            <div class="schedule-box">
+              <div><span class="detail-label">Assigned schedule</span><strong id="scheduleText"></strong></div>
+              <div><span class="detail-label">Latest reported progress</span><strong id="latestProgress"></strong></div>
+            </div>
+            <section class="span-calendar">
+              <div class="panel-heading">
+                <div>
+                  <h2>Assigned time span</h2>
+                  <p id="calendarSummary">Loading schedule…</p>
+                </div>
+              </div>
+              <div class="cal-bar">
+                <button class="cal-nav" type="button" id="calPrev" aria-label="Previous month">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m14.5 5.5-7 6.5 7 6.5"/></svg>
+                </button>
+                <strong id="calMonthLabel">—</strong>
+                <button class="cal-nav" type="button" id="calNext" aria-label="Next month">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9.5 5.5 7 6.5-7 6.5"/></svg>
+                </button>
+              </div>
+              <div class="cal-dow" aria-hidden="true">
+                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+              </div>
+              <div class="cal-grid" id="calGrid"></div>
+              <ul class="cal-legend">
+                <li><span class="legend-key legend-key--span" aria-hidden="true"></span>Within assigned span</li>
+                <li><span class="legend-key legend-key--report" aria-hidden="true"></span>Update submitted</li>
+                <li><span class="legend-key legend-key--open" aria-hidden="true"></span>Open to report</li>
+                <li><span class="legend-key legend-key--today" aria-hidden="true"></span>Today</li>
+              </ul>
+            </section>
+            <div class="report-section" id="reportSection" hidden>
+              <div class="panel-heading"><div><h2>Submit a dated progress update</h2><p>One cumulative progress report per project per day. Required for every update: materials, time, site coordinates and a photo.</p></div></div>
+              <form id="reportForm" class="workflow-form" enctype="multipart/form-data">
+                <label>Report date<input name="report_date" id="reportDate" type="date" required></label>
+                <label>Overall completion<input name="completion_percent" type="number" min="0" max="100" step="0.1" placeholder="e.g. 35" required><small>Enter cumulative project completion (%).</small></label>
+                <label>Time worked today (hours)<input name="hours_worked" type="number" min="0" max="24" step="0.25" required></label>
+                <input name="latitude" type="hidden">
+                <input name="longitude" type="hidden">
+                <label class="wide-field">Raw materials used<textarea name="materials" rows="3" maxlength="4000" placeholder="List material, quantity and unit (e.g. Cement — 20 bags)" required></textarea></label>
+                <label class="wide-field">Work completed / notes<textarea name="notes" rows="3" maxlength="2000" placeholder="Describe work completed today"></textarea></label>
+                <div class="location-capture wide-field">
+                  <div><strong>Site location</strong><p id="locationStatus">Capture your current site coordinates before submitting.</p></div>
+                  <button type="button" class="secondary-button" id="captureLocation">Capture site location</button>
+                </div>
+                <label class="wide-field">Site photos with captured location<input name="photos" type="file" accept="image/jpeg,image/png" multiple required><small>Upload 1–4 JPEG/PNG images, up to 5 MB each. Browser coordinates are saved with this report, not embedded in the image file.</small></label>
+                <button class="primary-button" id="submitReport" type="submit">Submit progress report</button>
+                <p class="form-message wide-field" id="reportMessage" role="status"></p>
+              </form>
+            </div>
+            <div class="report-section">
+              <div class="panel-heading"><div><h2>Progress history</h2><p>Reports are visible to the assigned contractor and authorized project officials.</p></div></div>
+              <div id="reportHistory" class="report-history"></div>
+            </div>
+            <section class="report-section conversation-section" aria-labelledby="conversationTitle">
+              <div class="panel-heading"><div><h2 id="conversationTitle">Project review &amp; clarifications</h2><p>Private to the assigned contractor and authorities within the project scope. Messages are not shown in the public summary.</p></div></div>
+              <div id="conversationHistory" class="conversation-history" aria-live="polite"></div>
+              <form id="conversationForm" class="conversation-form">
+                <label>Message type
+                  <select id="messageType" name="message_type"></select>
+                </label>
+                <label class="conversation-message">Message
+                  <textarea id="messageText" name="message" rows="3" maxlength="2000" required placeholder="Write a project review note or clarification request"></textarea>
+                </label>
+                <button class="primary-button" id="sendMessage" type="submit">Send message</button>
+                <p class="form-message" id="conversationStatus" role="status"></p>
+              </form>
+            </section>
+          </section>
+          <div class="panel empty-detail" id="emptyDetail">Select a project to see its sanction, schedule, MP and location.</div>
+        </div>
+        <p class="footnote">Progress, materials, location and photos are contractor-submitted records; Sahayog does not independently verify them. Reports appear immediately to authorized officials and should be checked against official records.</p>
+      </div>
+    </main>
+  </div>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/project-workflow.js"></script>
+</body>
+</html>

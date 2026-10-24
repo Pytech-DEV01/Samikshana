@@ -526,6 +526,12 @@ a {
   background: #fdf0df;
 }
 
+.role-initials {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
 .role-icon--contractor {
   color: var(--blue);
   background: #eaf1fd;
@@ -822,6 +828,31 @@ a {
   border-color: #f4cfcb;
   color: var(--error);
   background: #fef4f2;
+}
+
+.register-prompt {
+  margin: 15px 0 0;
+  color: var(--muted);
+  text-align: center;
+  font-size: 11px;
+}
+
+.register-prompt a,
+.admin-prompt a {
+  color: var(--green);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.register-prompt a:hover,
+.admin-prompt a:hover {
+  text-decoration: underline;
+}
+
+.admin-prompt {
+  margin: 9px 0 0;
+  text-align: center;
+  font-size: 10px;
 }
 
 .submit {

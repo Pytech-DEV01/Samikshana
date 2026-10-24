@@ -57,6 +57,10 @@
     authMessage.textContent =
       "Your identity-provider account is not assigned to that access level. Ask your administrator to grant the required role.";
     authMessage.classList.add("is-error");
+  } else if (error === "email") {
+    authMessage.textContent =
+      "Verify your email address with the identity provider before signing in.";
+    authMessage.classList.add("is-error");
   } else if (error === "provider") {
     authMessage.textContent =
       "Sign-in could not be completed. Check that the identity provider is available and try again.";

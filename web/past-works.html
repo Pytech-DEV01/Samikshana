@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Search historical MPLADS works within your authorized area.">
+  <title>Sahayog · Past works</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/portal.css">
+  <link rel="stylesheet" href="assets/css/past-works.css">
+</head>
+<body>
+  <div class="portal">
+    <aside class="sidebar">
+      <a class="brand" href="/projects" aria-label="Sahayog project workspace">
+        <span class="brand-mark" aria-hidden="true">S</span>
+        <span class="brand-copy"><strong>Sahayog</strong><small>MPLADS project reporting</small></span>
+      </a>
+      <p class="nav-label">WORKSPACE</p>
+      <nav class="menu" aria-label="Project workspace">
+        <a class="menu-link" href="/projects"><span>▤</span> Project reporting</a>
+        <a class="menu-link" href="/dashboard.html"><span>◫</span> Data dashboard</a>
+        <a class="menu-link is-active" href="/past-works"><span>◷</span> Past works</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="data-status"><span class="status-dot"></span><span>Signed in as<strong id="sidebarRole"></strong></span></div>
+        <button class="sign-out" id="logoutBtn" type="button">Sign out</button>
+      </div>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <div class="breadcrumbs"><span>Sahayog</span><span>/</span><strong>Past works</strong></div>
+        <div class="user-badge"><span class="avatar" id="userAvatar">S</span><span><strong id="userName"></strong><small id="userRole"></small></span></div>
+      </header>
+      <div class="content past-works-content">
+        <section class="page-heading">
+          <div>
+            <p class="eyebrow">HISTORICAL MPLADS DATA</p>
+            <h1>Past works</h1>
+            <p class="subheading">Browse completed and recommended works available within your authority scope.</p>
+          </div>
+        </section>
+        <section class="panel past-works-panel">
+          <div class="history-filters">
+            <label>Work status
+              <select id="typeFilter">
+                <option value="all">All works</option>
+                <option value="completed">Completed</option>
+                <option value="recommended">Recommended</option>
+              </select>
+            </label>
+            <label>State
+              <select id="stateFilter"><option value="">All in my scope</option></select>
+            </label>
+            <label class="history-search">Search
+              <input id="searchFilter" type="search" maxlength="120" placeholder="Work, ID, MP, constituency or authority">
+            </label>
+          </div>
+          <p class="location-notice">The source exports do not contain verified work-site coordinates or contractor contact details. Map links search Google Maps using the recorded work description and place names; the result is approximate, not a verified site pin. “Implementing authority” is the source dataset's IDA field.</p>
+          <div class="history-summary" id="historySummary" role="status">Loading historical works…</div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Work</th><th>Type</th><th>Amount</th><th>MP / constituency</th><th>Place</th><th>Date</th><th>Map</th></tr></thead>
+              <tbody id="worksBody"><tr><td colspan="7">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="history-pagination">
+            <button class="secondary-button" type="button" id="previousPage">Previous</button>
+            <span id="pageLabel">Page 1 of 1</span>
+            <button class="secondary-button" type="button" id="nextPage">Next</button>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <dialog id="mapDialog" class="map-dialog">
+    <div class="map-dialog-heading"><strong id="mapTitle">Map search</strong><button class="secondary-button" id="closeMap" type="button">Close</button></div>
+    <p>Search results may not identify the exact contract site because the source data has no verified coordinates.</p>
+    <iframe id="mapFrame" title="Approximate Google Maps search" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+    <a id="openGoogleMaps" target="_blank" rel="noopener noreferrer">Open search in Google Maps</a>
+  </dialog>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/past-works.js"></script>
+</body>
+</html>

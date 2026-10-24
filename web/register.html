@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Request an MPLADS portal account.">
+  <meta name="csrf-token" content="">
+  <title>Sahayog · Request account</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/css/login.css">
+  <link rel="stylesheet" href="/assets/css/registration.css">
+</head>
+<body class="login-page registration-page">
+  <main class="registration-shell">
+    <a class="registration-brand" href="/" aria-label="Return to Sahayog sign in">
+      <span class="registration-mark" aria-hidden="true">S</span>
+      <span><strong>Sahayog</strong><small>MPLADS Transparency Portal</small></span>
+    </a>
+
+    <section class="registration-card" aria-labelledby="registrationTitle">
+      <header class="registration-heading">
+        <p class="eyebrow">ACCOUNT ACCESS</p>
+        <h1 id="registrationTitle">Request an account</h1>
+        <p>Choose your specific official account type and submit details for review. Authority accounts retain their approved MP, State, Nodal, or District scope. Your account remains pending until an authorized reviewer checks your information.</p>
+      </header>
+
+      <form id="registrationForm">
+        <div class="registration-grid">
+          <label class="registration-field registration-field--full" for="role">
+            <span>Account type <b>*</b></span>
+            <select id="role" name="role" required>
+              <option value="">Choose account type</option>
+              <option value="mp">MP / MP office</option>
+              <option value="contractor">Contractor</option>
+              <option value="state_authority">State authority</option>
+              <option value="district_authority">District authority</option>
+              <option value="nodal_officer">Nodal officer</option>
+              <option value="ministry">MoSPI / Ministry</option>
+            </select>
+          </label>
+
+          <label class="registration-field" for="fullName">
+            <span>Full name <b>*</b></span>
+            <input id="fullName" name="full_name" autocomplete="name" maxlength="160" required>
+          </label>
+          <label class="registration-field" for="email">
+            <span>Official email <b>*</b></span>
+            <input id="email" name="email" type="email" autocomplete="email" maxlength="254" required>
+          </label>
+          <label class="registration-field" for="phone">
+            <span>Contact phone <b>*</b></span>
+            <input id="phone" name="phone" type="tel" autocomplete="tel" maxlength="40" required>
+          </label>
+          <label class="registration-field" for="password">
+            <span>Password <b>*</b></span>
+            <input id="password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required>
+            <small>Use 12–128 characters. Your password is sent to Keycloak and is never saved with the application.</small>
+          </label>
+          <label class="registration-field" for="passwordConfirmation">
+            <span>Confirm password <b>*</b></span>
+            <input id="passwordConfirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="12" maxlength="128" required>
+          </label>
+          <label class="registration-field registration-field--full" for="office_address">
+            <span>Office address</span>
+            <textarea id="office_address" name="office_address" rows="2" maxlength="2000"></textarea>
+          </label>
+
+          <div class="role-fields registration-field--full" data-role-fields="mp" hidden>
+            <p class="fieldset-title">MP / constituency details</p>
+            <div class="registration-grid">
+              <label class="registration-field" for="constituency"><span>Constituency <b>*</b></span><input id="constituency" name="constituency" maxlength="200"></label>
+              <label class="registration-field" for="state"><span>State / UT <b>*</b></span><input id="state" name="state" maxlength="200"></label>
+              <label class="registration-field" for="house"><span>House <b>*</b></span><select id="house" name="house"><option value="">Choose House</option><option>Lok Sabha</option><option>Rajya Sabha</option></select></label>
+              <label class="registration-field registration-field--full" for="locations"><span>Covered districts / locations <b>*</b></span><textarea id="locations" name="locations" rows="3" maxlength="2000" placeholder="Enter locations, one per line"></textarea></label>
+            </div>
+          </div>
+
+          <div class="role-fields registration-field--full" data-role-fields="contractor" hidden>
+            <p class="fieldset-title">Contractor / firm details</p>
+            <div class="registration-grid">
+              <label class="registration-field" for="company_name"><span>Registered company / firm name <b>*</b></span><input id="company_name" name="company_name" maxlength="200"></label>
+              <label class="registration-field" for="business_registration"><span>GSTIN / business registration <b>*</b></span><input id="business_registration" name="business_registration" maxlength="100"></label>
+            </div>
+          </div>
+
+          <div class="role-fields registration-field--full" data-role-fields="district_authority" hidden>
+            <p class="fieldset-title">District authority details</p>
+            <div class="registration-grid">
+              <label class="registration-field" for="district"><span>District <b>*</b></span><input id="district" name="district" maxlength="200"></label>
+              <label class="registration-field" for="districtState"><span>State / UT <b>*</b></span><input id="districtState" name="state" maxlength="200"></label>
+              <label class="registration-field" for="districtDepartment"><span>Department <b>*</b></span><input id="districtDepartment" name="department" maxlength="200"></label>
+              <label class="registration-field" for="districtDesignation"><span>Official designation <b>*</b></span><input id="districtDesignation" name="designation" maxlength="200"></label>
+            </div>
+          </div>
+
+          <div class="role-fields registration-field--full" data-role-fields="state_authority" hidden>
+            <p class="fieldset-title">State authority details</p>
+            <div class="registration-grid">
+              <label class="registration-field" for="stateAuthorityState"><span>State / UT <b>*</b></span><input id="stateAuthorityState" name="state" maxlength="200"></label>
+              <label class="registration-field" for="stateAuthorityDepartment"><span>Department <b>*</b></span><input id="stateAuthorityDepartment" name="department" maxlength="200"></label>
+              <label class="registration-field" for="stateAuthorityDesignation"><span>Official designation <b>*</b></span><input id="stateAuthorityDesignation" name="designation" maxlength="200"></label>
+            </div>
+          </div>
+
+          <div class="role-fields registration-field--full" data-role-fields="nodal_officer ministry" hidden>
+            <p class="fieldset-title">Government office details</p>
+            <div class="registration-grid">
+              <label class="registration-field" for="department"><span>Ministry / department <b>*</b></span><input id="department" name="department" maxlength="200"></label>
+              <label class="registration-field" for="designation"><span>Official designation <b>*</b></span><input id="designation" name="designation" maxlength="200"></label>
+            </div>
+          </div>
+
+          <label class="registration-field registration-field--full" for="documents">
+            <span>Supporting documents (optional)</span>
+            <input id="documents" name="documents" type="file" accept=".pdf,.png,.jpg,.jpeg" multiple>
+            <small>You may attach supporting proof if available (PDF, PNG, or JPEG; up to five files, 5 MB each). A document is not required to submit your account request.</small>
+          </label>
+        </div>
+
+        <div class="registration-notice" id="registrationNotice" role="status">
+          Your password is securely provisioned in Keycloak. Your account stays disabled until an authorized reviewer reviews and approves your application.
+        </div>
+        <p class="registration-error" id="registrationError" role="alert" hidden></p>
+        <button class="submit registration-submit" id="registrationSubmit" type="submit">
+          <span class="submit-label">Submit account request</span>
+          <span class="submit-trail" aria-hidden="true"><span class="submit-arrow">→</span></span>
+        </button>
+        <input type="hidden" name="csrf_token" value="">
+      </form>
+      <p class="registration-footer"><a href="/">← Back to sign in</a></p>
+    </section>
+  </main>
+  <script src="/assets/js/registration.js"></script>
+</body>
+</html>

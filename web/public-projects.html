@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Read-only public summaries of assigned MPLADS projects.">
+  <title>Sahayog · Public project summaries</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/css/public-projects.css">
+</head>
+<body>
+  <main class="public-page">
+    <header class="public-header">
+      <a class="public-brand" href="/">Sahayog <span>Public information</span></a>
+      <nav aria-label="Public navigation">
+        <a href="/">Sign in</a>
+        <a href="/register">Request access</a>
+      </nav>
+    </header>
+    <section class="intro">
+      <p class="eyebrow">READ-ONLY · PUBLIC SUMMARY</p>
+      <h1>Project summaries</h1>
+      <p>Browse high-level project information. Contractor accounts, private contact information, field photos, exact coordinates, and project conversations are not shown here.</p>
+    </section>
+    <section class="public-panel" aria-labelledby="projectsHeading">
+      <div class="filter-row">
+        <h2 id="projectsHeading">Assigned projects</h2>
+        <label for="projectSearch">Search title, MP, constituency, district or state</label>
+        <input id="projectSearch" type="search" maxlength="100" placeholder="Search public summaries">
+      </div>
+      <p id="resultCount" role="status">Loading project summaries…</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Project</th><th>MP / constituency</th><th>District / state</th><th>Sanctioned amount</th><th>Schedule</th><th>Progress</th></tr></thead>
+          <tbody id="projectRows"><tr><td colspan="6">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+    <footer>Published summaries are informational. Pending contractor reports are not presented as verified progress.</footer>
+  </main>
+  <script src="/assets/js/public-projects.js"></script>
+</body>
+</html>

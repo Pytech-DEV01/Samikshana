@@ -2,7 +2,7 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 
-DEFAULT_DATA_DIR = ROOT_DIR / "data" / "synthetic"
+DEFAULT_DATA_DIR = ROOT_DIR / "data"
 REPORTS_DIR = ROOT_DIR / "reports"
 
 # Prototype thresholds — validate these against real records.

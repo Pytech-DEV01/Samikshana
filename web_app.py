@@ -30,6 +30,7 @@ from flask import (
     send_from_directory,
     session,
 )
+from requests.exceptions import RequestException
 from werkzeug.utils import secure_filename
 
 from supabase_store import SupabaseStore, SupabaseStoreError
@@ -82,15 +83,10 @@ ROLES = {
         "access": "National scope",
         "contractorId": None,
     },
-    "application_reviewer": {
-        "label": "Account Reviewer",
-        "shortName": "Account Reviewer",
-        "access": "Application review",
-        "contractorId": None,
-    },
 }
 
 REGISTRABLE_ROLES = {
+    "citizen",
     "mp",
     "contractor",
     "state_authority",
@@ -127,7 +123,7 @@ def get_supabase_store():
     return SupabaseStore(url, secret_key)
 
 
-def sync_approved_profile_to_supabase(store, application, profile):
+def sync_keycloak_profile_to_supabase(store, application, profile):
     subject = application["keycloak_user_id"]
     profile_fields = {
         "email": application["email"],
@@ -363,9 +359,7 @@ def valid_csrf_token():
 
 
 def require_application_reviewer():
-    identity = session.get("identity")
-    if not identity or "application_reviewer" not in identity.get("roles", []):
-        abort(403)
+    abort(404)
 
 
 def project_visible_to_identity(project, identity):
@@ -557,6 +551,14 @@ def read_historical_works(dataset_directory, record_type):
                 }
 
 
+PUBLIC_HISTORY_DATASETS = {
+    "completed": "mplads_completed_works_2026-10-24.csv",
+    "recommended": "mplads_recommended_works_2026-10-24.csv",
+    "expenditures": "mplads_expenditures_2026-10-24.csv",
+    "mp_summary": "mplads_mp_summary_2026-10-24.csv",
+}
+
+
 def parse_iso_date(value):
     try:
         return date.fromisoformat(value)
@@ -727,6 +729,85 @@ def provision_pending_keycloak_account(email, full_name, password, profile):
     return user_id
 
 
+def provision_self_service_keycloak_account(
+    email, full_name, password, profile, role
+):
+    token = keycloak_admin_token()
+    query = urlencode({"email": email, "exact": "true"})
+    users, _headers = keycloak_admin_request(
+        token, "GET", f"users?{query}"
+    )
+    if any(user.get("email", "").casefold() == email for user in users or []):
+        raise KeycloakAccountConflict(
+            "An account already exists for this email."
+        )
+
+    user_attributes = {
+        key: [value]
+        for key, value in profile.items()
+        if value
+    }
+    _result, headers = keycloak_admin_request(
+        token,
+        "POST",
+        "users",
+        {
+            "username": email,
+            "email": email,
+            "firstName": full_name,
+            "emailVerified": False,
+            "enabled": True,
+            "requiredActions": ["VERIFY_EMAIL"],
+            "attributes": user_attributes,
+            "credentials": [
+                {"type": "password", "value": password, "temporary": False}
+            ],
+        },
+    )
+    location = headers.get("Location", "")
+    user_id = location.rstrip("/").split("/")[-1]
+    if not user_id:
+        users, _headers = keycloak_admin_request(
+            token, "GET", f"users?{query}"
+        )
+        matching_users = [
+            user for user in users or []
+            if user.get("email", "").casefold() == email
+        ]
+        if len(matching_users) != 1 or not matching_users[0].get("id"):
+            raise KeycloakAdminError(
+                "The identity-provider account was created but could not be identified."
+            )
+        user_id = matching_users[0]["id"]
+
+    try:
+        realm_role, _headers = keycloak_admin_request(
+            token, "GET", f"roles/{role}"
+        )
+        keycloak_admin_request(
+            token,
+            "POST",
+            f"users/{user_id}/role-mappings/realm",
+            [realm_role],
+        )
+        keycloak_admin_request(
+            token,
+            "PUT",
+            f"users/{user_id}/execute-actions-email",
+            ["VERIFY_EMAIL"],
+        )
+    except KeycloakAdminError:
+        try:
+            keycloak_admin_request(token, "DELETE", f"users/{user_id}")
+        except KeycloakAdminError:
+            current_app.logger.exception(
+                "Could not remove a partially provisioned self-service account."
+            )
+        raise
+
+    return user_id
+
+
 def approve_pending_keycloak_account(user_id, role, profile):
     token = keycloak_admin_token()
     user = keycloak_user_details(token, user_id)
@@ -868,32 +949,8 @@ def create_app(test_config=None):
     app.extensions["sahayog.oauth"] = oauth
 
     def identity_destination(identity):
-        if identity.get("role") == "application_reviewer":
-            preferred_role = next(
-                (
-                    role
-                    for role in (
-                        "mp",
-                        "district_authority",
-                        "state_authority",
-                        "nodal_officer",
-                        "ministry",
-                        "contractor",
-                    )
-                    if role in identity.get("roles", [])
-                ),
-                None,
-            )
-            if preferred_role:
-                role = ROLES[preferred_role]
-                identity.update(
-                    role=preferred_role,
-                    roleLabel=role["label"],
-                    access=role["access"],
-                )
-                session["identity"] = identity
-            else:
-                return redirect("/admin/applications")
+        if identity.get("role") not in ROLES:
+            abort(404)
         if identity.get("role") == "mp":
             return redirect("/dashboard.html")
         if identity.get("role") in PROJECT_REPORT_ROLES:
@@ -925,8 +982,8 @@ def create_app(test_config=None):
         response.headers["Cache-Control"] = "no-store"
         return response
 
-    @app.post("/api/account-applications")
-    def create_account_application():
+    @app.post("/api/accounts")
+    def create_account():
         if not request_is_same_origin() or not valid_csrf_token():
             abort(403, "This registration request could not be verified.")
 
@@ -969,6 +1026,7 @@ def create_app(test_config=None):
             )
         }
         required_by_role = {
+            "citizen": (),
             "mp": ("constituency", "state", "house", "locations"),
             "contractor": ("company_name", "business_registration"),
             "state_authority": ("state", "department", "designation"),
@@ -976,223 +1034,54 @@ def create_app(test_config=None):
             "nodal_officer": ("department", "designation"),
             "ministry": ("department", "designation"),
         }
-        required_fields = required_by_role[role]
-        if any(not profile[field] for field in required_fields):
+        if any(not profile[field] for field in required_by_role[role]):
             return jsonify(error="Complete all required fields for this account type."), 400
         if any(len(value) > 2000 for value in profile.values()):
             return jsonify(error="A profile field exceeds the permitted length."), 400
 
-        documents = request.files.getlist("documents")
-        documents = [document for document in documents if document.filename]
-        if len(documents) > 5:
-            return jsonify(error="Upload no more than five supporting documents."), 400
-
-        prepared_documents = []
-        for document in documents:
-            safe_name = secure_filename(document.filename)
-            suffix = Path(safe_name).suffix.lower()
-            file_info = ALLOWED_DOCUMENT_TYPES.get(suffix)
-            if not safe_name or not file_info:
-                return jsonify(error="Documents must be PDF, PNG, or JPEG files."), 400
-            signature, _content_type = file_info
-            content = document.stream.read(MAX_DOCUMENT_BYTES + 1)
-            if len(content) > MAX_DOCUMENT_BYTES:
-                return jsonify(error="Each document must be 5 MB or smaller."), 400
-            if not content.startswith(signature):
-                return jsonify(error=f"The uploaded file {safe_name} is not a valid {suffix} document."), 400
-            document_id = uuid.uuid4().hex
-            stored_name = f"{document_id}{suffix}"
-            prepared_documents.append(
-                {
-                    "id": document_id,
-                    "stored_name": stored_name,
-                    "filename": safe_name[:200],
-                    "content": content,
-                }
-            )
-
-        stored_documents = [
-            {key: value for key, value in document.items() if key != "content"}
-            for document in prepared_documents
-        ]
-        application_id = str(uuid.uuid4())
-        created_at = datetime.now(timezone.utc).isoformat()
         keycloak_user_id = None
-        directory = application_document_directory()
         store = get_supabase_store()
-        uploaded_document_paths = []
-        remote_application_created = False
         try:
-            with get_database() as connection:
-                existing_application = connection.execute(
-                    """
-                    SELECT 1 FROM account_applications
-                    WHERE email = ? AND role = ? AND status = 'pending'
-                    """,
-                    (email, role),
-                ).fetchone()
-            if store:
-                remote_existing = store.select(
-                    "account_applications",
-                    select="id",
-                    email=f"eq.{email}",
-                    role=f"eq.{role}",
-                    status="eq.pending",
-                    limit=1,
-                )
-                existing_application = existing_application or bool(remote_existing)
-            if existing_application:
-                return jsonify(
-                    error="There is already a pending application for this email and account type."
-                ), 409
-
-            keycloak_user_id = provision_pending_keycloak_account(
-                email, full_name, password, profile
+            keycloak_user_id = provision_self_service_keycloak_account(
+                email, full_name, password, profile, role
             )
-            for document in prepared_documents:
-                (directory / document["stored_name"]).write_bytes(document["content"])
-
             if store:
-                remote_documents = []
-                for document in prepared_documents:
-                    suffix = Path(document["stored_name"]).suffix.lower()
-                    storage_path = f"{application_id}/{document['stored_name']}"
-                    store.upload(
-                        "application-documents",
-                        storage_path,
-                        document["content"],
-                        ALLOWED_DOCUMENT_TYPES[suffix][1],
-                    )
-                    uploaded_document_paths.append(storage_path)
-                    remote_documents.append(
-                        {
-                            "id": document["id"],
-                            "filename": document["filename"],
-                            "mime_type": ALLOWED_DOCUMENT_TYPES[suffix][1],
-                            "storage_path": storage_path,
-                        }
-                    )
-                store.insert(
-                    "account_applications",
+                sync_keycloak_profile_to_supabase(
+                    store,
                     {
-                        "id": application_id,
-                        "role": role,
-                        "email": email,
                         "keycloak_user_id": keycloak_user_id,
+                        "email": email,
                         "full_name": full_name,
                         "phone": phone,
-                        "profile_json": profile,
-                        "documents_json": remote_documents,
-                        "status": "pending",
-                        "created_at": created_at,
+                        "role": role,
                     },
+                    profile,
                 )
-                remote_application_created = True
-
-            with get_database() as connection:
-                connection.execute(
-                    """
-                    INSERT INTO account_applications
-                    (id, role, email, keycloak_user_id, full_name, phone,
-                     profile_json, documents_json, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        application_id,
-                        role,
-                        email,
-                        keycloak_user_id,
-                        full_name,
-                        phone,
-                        json.dumps(profile),
-                        json.dumps(stored_documents),
-                        created_at,
-                    ),
-                )
-        except sqlite3.IntegrityError:
-            for document in stored_documents:
-                (directory / document["stored_name"]).unlink(missing_ok=True)
-            if store and remote_application_created:
-                try:
-                    store.delete(
-                        "account_applications", {"id": f"eq.{application_id}"}
-                    )
-                    if uploaded_document_paths:
-                        store.delete_objects(
-                            "application-documents", uploaded_document_paths
-                        )
-                except SupabaseStoreError:
-                    current_app.logger.exception(
-                        "Could not clean up a conflicting Supabase account application."
-                    )
-            if keycloak_user_id:
-                try:
-                    delete_pending_keycloak_account(keycloak_user_id)
-                except KeycloakAdminError:
-                    current_app.logger.exception(
-                        "Could not clean up a pending Keycloak account after an application conflict."
-                    )
-            return jsonify(
-                error="There is already a pending application for this email and account type."
-            ), 409
-        except SupabaseStoreError:
-            for document in stored_documents:
-                (directory / document["stored_name"]).unlink(missing_ok=True)
-            if uploaded_document_paths:
-                try:
-                    store.delete_objects(
-                        "application-documents", uploaded_document_paths
-                    )
-                except SupabaseStoreError:
-                    current_app.logger.exception(
-                        "Could not clean up an incomplete application document upload."
-                    )
-            if keycloak_user_id:
-                try:
-                    delete_pending_keycloak_account(keycloak_user_id)
-                except KeycloakAdminError:
-                    current_app.logger.exception(
-                        "Could not clean up a pending Keycloak account after a Supabase failure."
-                    )
-            current_app.logger.exception("Supabase account application could not be saved.")
-            return jsonify(
-                error="Your application could not be saved to the application database. Please try again."
-            ), 503
         except KeycloakAccountConflict as error:
             return jsonify(error=str(error)), 409
         except KeycloakAdminError as error:
             return jsonify(error=str(error)), 503
-        except Exception:
-            for document in stored_documents:
-                (directory / document["stored_name"]).unlink(missing_ok=True)
-            if store and remote_application_created:
-                try:
-                    store.delete(
-                        "account_applications", {"id": f"eq.{application_id}"}
-                    )
-                    if uploaded_document_paths:
-                        store.delete_objects(
-                            "application-documents", uploaded_document_paths
-                        )
-                except SupabaseStoreError:
-                    current_app.logger.exception(
-                        "Could not clean up an application after a local database failure."
-                    )
+        except SupabaseStoreError:
             if keycloak_user_id:
                 try:
-                    delete_pending_keycloak_account(keycloak_user_id)
+                    disable_pending_keycloak_account(keycloak_user_id)
                 except KeycloakAdminError:
                     current_app.logger.exception(
-                        "Could not clean up a pending Keycloak account after an application storage failure."
+                        "Could not disable an account after its Supabase profile failed to save."
                     )
-            raise
+            current_app.logger.exception(
+                "The self-service account profile could not be saved to Supabase."
+            )
+            return jsonify(
+                error="The account could not be completed because its profile could not be saved. Please try again later."
+            ), 503
 
         return jsonify(
-            application_id=application_id,
-            status="pending",
+            status="created",
+            role=role,
             message=(
-                "Your request is pending review. Your account will be enabled "
-                "after an authorized reviewer approves it."
+                "Your account is created. Verify your email using the message from "
+                "Sahayog, then sign in with your email and password."
             ),
         ), 201
 
@@ -1392,7 +1281,7 @@ def create_app(test_config=None):
                     application_profile,
                 )
                 if store:
-                    sync_approved_profile_to_supabase(
+                    sync_keycloak_profile_to_supabase(
                         store, application, application_profile
                     )
             else:
@@ -1494,6 +1383,94 @@ def create_app(test_config=None):
     def public_projects_page():
         response = send_from_directory(WEB_DIR, "public-projects.html")
         response.headers["Cache-Control"] = "public, max-age=60"
+        return response
+
+    @app.get("/view-history")
+    def view_history_page():
+        response = send_from_directory(WEB_DIR, "view-history.html")
+        response.headers["Cache-Control"] = "public, max-age=60"
+        return response
+
+    @app.get("/api/public/history")
+    def list_public_history():
+        dataset = request.args.get("dataset", "completed").casefold()
+        filename = PUBLIC_HISTORY_DATASETS.get(dataset)
+        if not filename:
+            abort(400, description="Choose a supported history dataset.")
+        try:
+            page = int(request.args.get("page", "1"))
+        except ValueError:
+            abort(400, description="Page must be a positive integer.")
+        if page < 1 or page > 100000:
+            abort(400, description="Page must be between 1 and 100000.")
+
+        search = normalized_scope_value(request.args.get("search"))
+        if len(search) > 120:
+            abort(400, description="Search must be 120 characters or fewer.")
+        selected_state = normalized_scope_value(request.args.get("state"))
+        page_size = 25
+        start = (page - 1) * page_size
+        directory = Path(current_app.config["HISTORICAL_WORKS_DIRECTORY"])
+        path = directory / filename
+        if not path.is_file():
+            current_app.logger.error("Public history export is missing: %s", path)
+            abort(503, description="Public history data is temporarily unavailable.")
+
+        rows = []
+        states = set()
+        total = 0
+        amount_total = 0.0
+        with path.open("r", encoding="utf-8-sig", newline="") as source:
+            reader = csv.DictReader(source)
+            columns = reader.fieldnames
+            if not columns:
+                current_app.logger.error("Public history export has no header: %s", path)
+                abort(503, description="Public history data is temporarily unavailable.")
+            amount_column = next(
+                (column for column in columns if "amount" in column.casefold()),
+                None,
+            )
+            for record in reader:
+                record = {
+                    key: value or ""
+                    for key, value in record.items()
+                    if key is not None
+                }
+                state = record.get("State", "").strip()
+                if state:
+                    states.add(state)
+                if selected_state and normalized_scope_value(state) != selected_state:
+                    continue
+                if search and search not in normalized_scope_value(
+                    " ".join(record.values())
+                ):
+                    continue
+                if start <= total < start + page_size:
+                    rows.append(record)
+                if amount_column:
+                    amount = record.get(amount_column, "").replace(",", "").strip()
+                    try:
+                        numeric_amount = float(amount)
+                        if math.isfinite(numeric_amount):
+                            amount_total += numeric_amount
+                    except ValueError:
+                        pass
+                total += 1
+
+        response = jsonify(
+            dataset=dataset,
+            as_of="2026-10-24",
+            columns=columns,
+            amount_column=amount_column,
+            records=rows,
+            states=sorted(states, key=str.casefold),
+            total=total,
+            amount_total=round(amount_total, 2),
+            page=page,
+            page_size=page_size,
+            total_pages=max(1, math.ceil(total / page_size)),
+        )
+        response.headers["Cache-Control"] = "public, max-age=3600"
         return response
 
     @app.get("/api/public/projects")
@@ -2368,7 +2345,6 @@ def create_app(test_config=None):
         if (
             not identity
             or identity.get("role") not in ROLES
-            or identity.get("role") == "application_reviewer"
         ):
             return redirect("/")
         if identity["role"] == "contractor":
@@ -2396,10 +2372,18 @@ def create_app(test_config=None):
 
         session["requested_role"] = requested_role
         redirect_uri = f'{app.config["PUBLIC_BASE_URL"]}/auth/callback'
-        return oauth.keycloak.authorize_redirect(
-            redirect_uri,
-            code_verifier=generate_token(48)
-        )
+        try:
+            return oauth.keycloak.authorize_redirect(
+                redirect_uri,
+                code_verifier=generate_token(48)
+            )
+        except (OAuthError, RequestException) as error:
+            current_app.logger.warning(
+                "Keycloak sign-in could not start: %s.",
+                type(error).__name__,
+            )
+            session.pop("requested_role", None)
+            return redirect("/?auth_error=provider")
     @app.post('/auth/demo-login')
     def demo_login():
         """Demo login for contractor with static credentials.
@@ -2488,10 +2472,10 @@ def create_app(test_config=None):
         role_claims.update(client_roles)
 
         requested_role = session.pop("requested_role", "citizen")
+        if requested_role == "application_reviewer":
+            return redirect("/?auth_error=role")
         assigned_authority_roles = role_claims.intersection(PROJECT_AUTHORITY_ROLES)
-        if requested_role == "authority" or (
-            requested_role == "application_reviewer" and assigned_authority_roles
-        ):
+        if requested_role == "authority":
             if not assigned_authority_roles:
                 current_app.logger.info(
                     "Authenticated user has no assigned Sahayog authority role."

@@ -1,9 +1,9 @@
 # Sahayog sign-in setup
 
 Sahayog uses **Keycloak** as its open-source OpenID Connect identity provider.
-The Flask application is the OAuth client. User passwords are entered only on
-Keycloak's sign-in page; they are never collected or stored by the Sahayog
-frontend.
+The Flask application is the OAuth client. During sign-in, passwords are
+entered on Keycloak's page. During registration, the password is sent to the
+Flask server and forwarded to Keycloak without being stored by Sahayog.
 
 ## Local development
 
@@ -31,16 +31,11 @@ frontend.
    startup. This compose configuration is for local development only; Keycloak
    runs in development mode over HTTP.
 
-4. Open `http://localhost:8080`, sign in with the Keycloak administrator
-   credentials from `.env`, and assign application roles only to verified
-   accounts. The local `sahayog` realm has email sign-in and verified-email
-   enforcement enabled. Supported realm roles are `citizen`, `mp`, `contractor`,
-   `state_authority`, `district_authority`, `nodal_officer`, `ministry`, and
-   `application_reviewer`. MP, Contractor, State Authority, District Authority,
-   Nodal Officer, and MoSPI/Ministry account requests are submitted through
-   `http://localhost:5000/register`. Sign-in has three choices (User, Contractor,
-   and the grouped authority option); account requests still ask which specific
-   official role is needed so it can be reviewed and assigned accurately.
+4. Configure outgoing email for the `sahayog` realm in the Keycloak admin
+   console. Sahayog sends new users a Keycloak email-verification message and
+   does not allow sign-in until the email is verified. Supported self-service
+   account roles are `citizen`, `mp`, `contractor`, `state_authority`,
+   `district_authority`, `nodal_officer`, and `ministry`.
 
 5. Start the Sahayog web app in a second terminal:
 
@@ -51,64 +46,40 @@ frontend.
 6. Open `http://localhost:5000`. Do not open `web/index.html` directly using
    `file://`; OAuth callbacks and server-side sessions require the Flask app.
 
-The access-level choice on the sign-in page is not an authorization grant.
-Email sign-in requires a verified Keycloak email. The sign-in page presents
-three account types: User, Contractor, and MP/State/Nodal/District Authorities.
-The authority choice accepts an approved MP, State Authority, District
-Authority, Nodal Officer, or Ministry role claim; the verified Keycloak role
-still determines the account's actual permissions and scope. An authenticated
-account without an elevated role can sign in as a User.
+## Self-service accounts
 
-## Account request review
+Visitors can create a Citizen, Contractor, MP, State Authority, District
+Authority, Nodal Officer, or Ministry account at
+`http://localhost:5000/register`. Accounts are enabled and assigned the
+selected Keycloak role immediately. Official and contractor profile fields
+are stored as Keycloak attributes and used to scope the portal. Because role
+selection is self-service, use this deployment only when that registration
+policy is intended; otherwise restrict registration or add an independent
+verification policy before production.
 
-Applicants submit their email, password, profile, and optionally
-PDF/JPEG/PNG supporting documents at `http://localhost:5000/register`. A proof
-document is not required for any account type. The password is sent directly
-to Keycloak over the server-side Admin API and is never stored in the
-application database.
-Keycloak creates a disabled, unverified account until review. Application
-records are stored in the Flask instance database at
-`instance/account_applications.sqlite3`; supporting documents are stored
-outside the static web directory at `instance/application_documents/`. Only a
-Keycloak account with the `application_reviewer` realm role can open
-`http://localhost:5000/admin/applications` or preview/download submitted
-documents.
-To create a reviewer, create a trusted operator account in the Keycloak admin
-console, verify its email, and explicitly assign the `application_reviewer`
-realm role. Do not assign this role to applicants or ordinary portal accounts.
+Keycloak requires the user to verify their email before sign-in. Configure
+working SMTP settings in the realm's email settings; registration fails and
+removes the partially created Keycloak account if the verification message
+cannot be sent. The password is forwarded to Keycloak through the server-side
+Admin API and is never stored by Sahayog. Configure
+`KEYCLOAK_ADMIN_USERNAME` and `KEYCLOAK_ADMIN_PASSWORD` for that server-only
+API access, and use HTTPS in production.
 
-The reviewer page shows the submitted application information and previews
-any optionally uploaded PDF/image documents. Reviewers may accept or reject
-based on the submitted information; an attached proof document is not
-required. Approval assigns the requested realm role, writes the reviewed
-profile attributes, marks the reviewed email verified, and enables the
-applicant's pre-provisioned Keycloak account, so the contractor can sign in
-with the email and password they registered. The approved contractor profile
-is then available for project assignment. Rejection retains the application
-decision for review history and deletes the disabled pending Keycloak account.
-District authority scope is the verified district; State Authority scope is
-the verified state; Nodal Officer and MoSPI/Ministry scopes are national.
-Applications submitted before this provisioning flow have no linked pending
-Keycloak account; they must be handled separately by an administrator.
+Account-reviewer sign-in and the application-review interface are no longer
+available. Existing application records and uploaded documents are not
+automatically deleted by this change.
 
-Configure `KEYCLOAK_ADMIN_USERNAME` and `KEYCLOAK_ADMIN_PASSWORD` for the Flask
-server; the account workflow uses these server-only credentials to provision
-pending users and activate approved accounts. Keep them out of client-side
-code and logs. Use HTTPS in production because a new password is submitted
-once to the Flask server and forwarded to Keycloak without being persisted.
-
-For a production deployment, replace local document storage with encrypted,
-access-controlled storage and define a retention/deletion policy. Protect
-application metadata and official documents as sensitive personal data.
+The dashboard's bundled static MPLADS dataset remains public to anyone who can
+load the site; account roles do not currently filter or restrict those static
+records.
 The dashboard's bundled static MPLADS dataset remains public to anyone who can
 load the site; account roles do not currently filter or restrict those static
 records.
 
-The bundled Keycloak realm export maps the reviewed profile fields into OIDC
-claims. If the `sahayog` realm was created before those mappers were added,
-import the client mappers into the existing `sahayog-web` client or recreate
-the local development realm before approving accounts that need scoped
-project access.
+The bundled Keycloak realm export maps profile fields into OIDC claims. If the
+`sahayog` realm was created before those mappers were added, import the client
+mappers into the existing `sahayog-web` client or recreate the local
+development realm before creating accounts that need scoped project access.
 
 ## Project assignments and contractor progress reports
 
@@ -141,14 +112,22 @@ browser and are not proof of physical presence. Files and project records use
 the configured Supabase database/private Storage when enabled, otherwise they
 remain in the Flask instance database and `instance/work_report_photos/`.
 
-Unauthenticated visitors can browse the read-only high-level project summaries
-at `http://localhost:5000/public/projects`. The public endpoint returns only
-project title, MP/constituency, district/state, sanctioned amount, schedule,
-and accepted progress. It omits contractor identity/contact information,
-descriptions, exact locations, submitted reports/photos, review notes, and
-private conversations. Pending or rejected progress is not shown as verified
-public progress. Public clients have no project create, report, review, or
-delete endpoint.
+Unauthenticated visitors can browse read-only current project summaries at
+`http://localhost:5000/public/projects` and the published historical exports
+through **View History** at `http://localhost:5000/view-history`. The history
+dashboard exposes the source columns for completed works, recommended works,
+expenditure records, and MP summaries with search, state filters, and
+pagination. This source data is separate from private contractor reports and
+project conversations; it does not grant public project create, report, review,
+or delete access.
+
+The published completed/recommended work exports provide location descriptions
+and administrative area names but contain no verified latitude/longitude
+coordinates. The history dashboard can search those place descriptions on a
+map, but that result is approximate and must not be treated as an exact site
+pin. Exact coordinates can only be shown when verified coordinates are present
+in the source data. Current assigned-project summaries continue to omit the
+project's submitted exact location and contractor information.
 
 ## Historical works
 
@@ -225,11 +204,12 @@ To connect the Flask server, set `SUPABASE_URL` and `SUPABASE_SECRET_KEY` in
 the ignored local `.env` file or deployment secret manager. The secret key is
 used only by server-side code and must never be sent to the browser. The
 publishable key is not sufficient for private application writes. With both
-settings present, new account applications and their private documents,
-approved user profiles, contractor records, assigned projects, progress
-reports, and private report photos are written to Supabase. Account review and
-project lists read the Supabase records. If either server setting is missing,
-the app continues using its existing local SQLite and file-storage behavior.
+settings present, self-service user profiles, contractor records, assigned
+projects, progress reports, and private report photos are written to Supabase.
+Existing application-review tables and records remain for historical
+compatibility, but the review interface is disabled. If either server setting
+is missing, the app continues using its existing local SQLite and file-storage
+behavior.
 
 Run `python run_migration.py` after adding the server database password or
 connection string to apply the complete schema and

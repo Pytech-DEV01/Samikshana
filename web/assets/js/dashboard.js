@@ -3184,9 +3184,16 @@
   document.getElementById("menuBtn").addEventListener("click", openMenu);
   scrim.addEventListener("click", closeMenu);
 
-  document.getElementById("logoutBtn").addEventListener("click", () => {
-    SahayogAuth.clearSession();
-    window.location.href = "index.html";
+  document.getElementById("logoutBtn").addEventListener("click", async () => {
+    const button = document.getElementById("logoutBtn");
+    button.disabled = true;
+    try {
+      await SahayogAuth.clearSession();
+      window.location.href = "/";
+    } catch (error) {
+      button.disabled = false;
+      toast(error.message || "Sign out failed. Please try again.");
+    }
   });
 
   const resetButton = document.createElement("button");

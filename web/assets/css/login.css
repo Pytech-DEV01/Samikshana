@@ -849,6 +849,23 @@ a {
   text-decoration: underline;
 }
 
+.register-prompt a.history-link {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  border: 1px solid #c9ddd1;
+  border-radius: 7px;
+  background: #f4f8f5;
+  text-decoration: none;
+}
+
+.register-prompt a.history-link:hover {
+  border-color: var(--green);
+  background: #edf5ef;
+}
+
 .admin-prompt {
   margin: 9px 0 0;
   text-align: center;

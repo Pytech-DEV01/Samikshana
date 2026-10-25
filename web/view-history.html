@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Explore public MPLADS history, works, expenditure and MP summaries without signing in.">
+  <title>Sahayog · View History</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/css/view-history.css">
+</head>
+<body>
+  <main class="history-page">
+    <header class="history-header">
+      <a class="history-brand" href="/">Sahayog <span>Public data</span></a>
+      <nav aria-label="Public navigation">
+        <a href="/public/projects">Project summaries</a>
+        <a href="/register">Create an account</a>
+        <a href="/">Sign in</a>
+      </nav>
+    </header>
+
+    <section class="history-intro">
+      <p class="eyebrow">OPEN MPLADS RECORDS · NO SIGN-IN REQUIRED</p>
+      <h1>View History</h1>
+      <p>Explore completed and recommended works, expenditure records, and MP summaries from the published source exports.</p>
+      <p class="location-note"><strong>About locations:</strong> The supplied exports include place names and work descriptions, but no verified latitude/longitude coordinates. Map links search those recorded place details and are approximate—not exact site pins. Exact map locations can only be shown when a source provides verified coordinates.</p>
+    </section>
+
+    <section class="history-metrics" aria-label="Filtered dataset summary">
+      <article class="metric-card"><span>Matching records</span><strong id="recordMetric">—</strong><small id="recordCaption">Choose a dataset to begin</small></article>
+      <article class="metric-card"><span>Amount in results</span><strong id="amountMetric">—</strong><small id="amountCaption">Based on the selected source column</small></article>
+      <article class="metric-card"><span>States / UTs</span><strong id="stateMetric">—</strong><small>Available in this dataset</small></article>
+    </section>
+
+    <section class="history-panel" aria-labelledby="recordsHeading">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">SOURCE EXPORTS · 24 OCT 2026</p>
+          <h2 id="recordsHeading">Explore records</h2>
+        </div>
+      </div>
+      <div class="history-filters">
+        <label for="datasetFilter">Dataset
+          <select id="datasetFilter">
+            <option value="completed">Completed works</option>
+            <option value="recommended">Recommended works</option>
+            <option value="expenditures">Expenditure records</option>
+            <option value="mp_summary">MP summary</option>
+          </select>
+        </label>
+        <label for="stateFilter">State / UT
+          <select id="stateFilter"><option value="">All states / UTs</option></select>
+        </label>
+        <label class="search-field" for="searchFilter">Search all columns
+          <input id="searchFilter" type="search" maxlength="120" placeholder="Work, MP, vendor, place, date…">
+        </label>
+      </div>
+      <p class="results-status" id="resultsStatus" role="status">Loading history…</p>
+      <div class="table-scroll">
+        <table>
+          <thead id="historyHead"></thead>
+          <tbody id="historyBody"><tr><td>Loading history…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="history-pagination">
+        <button type="button" id="previousPage" disabled>Previous</button>
+        <span id="pageLabel">Page 1 of 1</span>
+        <button type="button" id="nextPage" disabled>Next</button>
+      </div>
+      <p class="data-note">Records are shown as published in the selected source export. Location searches do not verify the physical project site.</p>
+    </section>
+
+    <footer>Read-only public information · Source records are not live project updates.</footer>
+  </main>
+  <dialog id="recordDialog" class="record-dialog">
+    <div class="dialog-heading">
+      <div><p class="eyebrow">SOURCE RECORD</p><h2 id="dialogTitle">Record details</h2></div>
+      <button class="dialog-close" id="closeDialog" type="button">Close</button>
+    </div>
+    <dl id="recordDetails"></dl>
+    <div class="dialog-location" id="dialogLocation"></div>
+  </dialog>
+  <script src="/assets/js/view-history.js"></script>
+</body>
+</html>

@@ -5,6 +5,7 @@ import sqlite3
 from datetime import date, timedelta
 from io import BytesIO
 from urllib.parse import parse_qs, urlparse
+from requests.exceptions import ConnectionError
 
 os.environ.setdefault("SAHAYOG_SECRET_KEY", "test-only-secret")
 
@@ -41,6 +42,9 @@ def test_login_page_has_no_local_demo_credentials(tmp_path):
     assert b"Demo credentials" not in response.data
     assert b"mp@sahayog.in" not in response.data
     assert b"citizen123" not in response.data
+    assert b"Create an account" in response.data
+    assert b"Request access" not in response.data
+    assert b"Account reviewer sign-in" not in response.data
     assert b"oauthLoginBtn" in response.data
     assert len(re.findall(rb'class="role(?: is-selected)?" data-role=', response.data)) == 3
     assert b'data-role="authority"' in response.data
@@ -264,6 +268,26 @@ def test_authorization_redirect_uses_pkce_and_requested_role(tmp_path):
             assert stored["requested_role"] == "authority"
 
 
+def test_login_redirects_to_provider_error_when_keycloak_is_unavailable(
+    monkeypatch, tmp_path
+):
+    app = create_test_app(tmp_path)
+    oauth = app.extensions["sahayog.oauth"]
+
+    def unavailable_provider(*_args, **_kwargs):
+        raise ConnectionError("Keycloak is unavailable.")
+
+    monkeypatch.setattr(oauth.keycloak, "authorize_redirect", unavailable_provider)
+    client = app.test_client()
+
+    response = client.get("/auth/login?role=authority")
+
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/?auth_error=provider")
+    with client.session_transaction() as stored:
+        assert "requested_role" not in stored
+
+
 def test_keycloak_admin_request_sends_bearer_token(monkeypatch, tmp_path):
     app = create_test_app(tmp_path)
     captured = {}
@@ -413,7 +437,7 @@ def test_authority_group_cannot_sign_in_without_an_authority_role(monkeypatch, t
     assert client.get("/projects").headers["Location"].endswith("/")
 
 
-def test_reviewer_role_in_verified_userinfo_opens_review_queue(monkeypatch, tmp_path):
+def test_reviewer_role_cannot_sign_in(monkeypatch, tmp_path):
     app = create_test_app(tmp_path)
     oauth = app.extensions["sahayog.oauth"]
     monkeypatch.setattr(
@@ -422,7 +446,6 @@ def test_reviewer_role_in_verified_userinfo_opens_review_queue(monkeypatch, tmp_
         lambda: {
             "userinfo": {
                 "sub": "reviewer-subject",
-                "name": "Account Reviewer",
                 "email": "reviewer@example.test",
                 "email_verified": True,
                 "realm_access": {"roles": ["application_reviewer"]},
@@ -436,114 +459,28 @@ def test_reviewer_role_in_verified_userinfo_opens_review_queue(monkeypatch, tmp_
     response = client.get("/auth/callback")
 
     assert response.status_code == 302
-    assert response.headers["Location"].endswith("/admin/applications")
-    with client.session_transaction() as stored:
-        assert stored["identity"]["role"] == "application_reviewer"
-        assert stored["identity"]["roles"] == ["application_reviewer"]
-    assert client.get("/admin/applications").status_code == 200
-
-
-def test_reviewer_with_mp_role_lands_on_mp_dashboard(monkeypatch, tmp_path):
-    app = create_test_app(tmp_path)
-    oauth = app.extensions["sahayog.oauth"]
-    monkeypatch.setattr(
-        oauth.keycloak,
-        "authorize_access_token",
-        lambda: {
-            "userinfo": {
-                "sub": "combined-reviewer-mp-subject",
-                "name": "Reviewer MP",
-                "email": "reviewer-mp@example.test",
-                "email_verified": True,
-                "realm_access": {"roles": ["application_reviewer", "mp"]},
-            }
-        },
-    )
-    client = app.test_client()
-    with client.session_transaction() as stored:
-        stored["requested_role"] = "application_reviewer"
-
-    response = client.get("/auth/callback")
-    dashboard = client.get("/dashboard.html")
-
-    assert response.status_code == 302
-    assert response.headers["Location"].endswith("/dashboard.html")
-    assert dashboard.status_code == 200
-    assert b'"role": "mp"' in dashboard.data
-    with client.session_transaction() as stored:
-        assert stored["identity"]["role"] == "mp"
-
-
-def test_callback_rejects_unverified_email(monkeypatch, tmp_path):
-    app = create_test_app(tmp_path)
-    oauth = app.extensions["sahayog.oauth"]
-    monkeypatch.setattr(
-        oauth.keycloak,
-        "authorize_access_token",
-        lambda: {
-            "userinfo": {
-                "sub": "unverified-subject",
-                "email": "unverified@example.test",
-                "email_verified": False,
-            }
-        },
-    )
-    client = app.test_client()
-    with client.session_transaction() as stored:
-        stored["requested_role"] = "citizen"
-
-    response = client.get("/auth/callback")
-
-    assert response.status_code == 302
-    assert response.headers["Location"].endswith("/?auth_error=email")
-    assert client.get("/dashboard.html").headers["Location"].endswith("/")
-
-
-def test_user_cannot_claim_unassigned_mp_role(monkeypatch, tmp_path):
-    app = create_test_app(tmp_path)
-    oauth = app.extensions["sahayog.oauth"]
-    monkeypatch.setattr(
-        oauth.keycloak,
-        "authorize_access_token",
-        lambda: {
-            "userinfo": {
-                "sub": "citizen-subject",
-                "name": "Example Citizen",
-                "email": "citizen@example.test",
-                "email_verified": True,
-                "realm_access": {"roles": ["citizen"]},
-            }
-        },
-    )
-
-    client = app.test_client()
-    with client.session_transaction() as stored:
-        stored["requested_role"] = "mp"
-
-    response = client.get("/auth/callback")
-
-    assert response.status_code == 302
     assert response.headers["Location"].endswith("/?auth_error=role")
-    assert client.get("/dashboard.html").headers["Location"].endswith("/")
-
-
-def test_logout_requires_same_origin_and_clears_session(tmp_path):
-    client = create_test_app(tmp_path).test_client()
     with client.session_transaction() as stored:
-        stored["identity"] = {"role": "citizen", "subject": "test"}
+        assert "identity" not in stored
 
-    rejected = client.post(
-        "/auth/logout",
-        headers={"Origin": "https://attacker.example"},
-    )
-    accepted = client.post(
-        "/auth/logout",
-        headers={"Origin": "http://localhost:5000"},
-    )
 
-    assert rejected.status_code == 403
-    assert accepted.status_code == 302
-    assert client.get("/dashboard.html").headers["Location"].endswith("/")
+def test_account_reviewer_sign_in_and_review_routes_are_removed(tmp_path):
+    client = create_test_app(tmp_path).test_client()
+
+    assert client.get("/auth/login?role=application_reviewer").status_code == 400
+    assert client.get("/admin/applications").status_code == 404
+    assert client.get("/api/admin/applications").status_code == 404
+    assert client.post("/api/admin/applications/any/decision").status_code == 404
+
+
+def test_registration_page_offers_self_service_without_reviewer_access(tmp_path):
+    response = create_test_app(tmp_path).test_client().get("/register")
+
+    assert response.status_code == 200
+    assert b"Create your account" in response.data
+    assert b"Citizen / Public User" in response.data
+    assert b"pending reviewer approval" not in response.data
+    assert b"Supporting documents" not in response.data
 
 
 def registration_token(client):
@@ -553,107 +490,100 @@ def registration_token(client):
     return match.group(1).decode()
 
 
-def test_registration_application_is_stored_pending_with_private_document(
+def registration_payload(role="citizen", **fields):
+    payload = {
+        "role": role,
+        "email": "person@example.test",
+        "full_name": "Example Person",
+        "phone": "+91 1234567890",
+        "password": "correct horse battery staple",
+        "password_confirmation": "correct horse battery staple",
+    }
+    if role == "ministry":
+        payload.update(department="Example ministry", designation="Officer")
+    payload.update(fields)
+    return payload
+
+
+def test_registration_creates_account_immediately_without_application_record(
     monkeypatch, tmp_path
 ):
+    created = []
     monkeypatch.setattr(
-        "web_app.provision_pending_keycloak_account",
-        lambda email, full_name, password, profile: "pending-user-id",
-    )
-    app = create_test_app(tmp_path)
-    client = app.test_client()
-    csrf_token = registration_token(client)
-
-    response = client.post(
-        "/api/account-applications",
-        data={
-            "role": "mp",
-            "email": "MP.Office@Example.test",
-            "full_name": "Example MP",
-            "phone": "+91 1234567890",
-            "password": "correct horse battery staple",
-            "password_confirmation": "correct horse battery staple",
-            "constituency": "Example North",
-            "state": "Example State",
-            "house": "Lok Sabha",
-            "locations": "District One\nDistrict Two",
-            "documents": (BytesIO(b"%PDF-1.7 test"), "proof.pdf"),
-        },
-        headers={
-            "Origin": "http://localhost:5000",
-            "X-CSRF-Token": csrf_token,
-        },
-        content_type="multipart/form-data",
-    )
-
-    assert response.status_code == 201
-    result = response.get_json()
-    assert result["status"] == "pending"
-    with sqlite3.connect(app.config["APPLICATION_DATABASE"]) as connection:
-        row = connection.execute(
-            """
-            SELECT email, role, status, documents_json, keycloak_user_id
-            FROM account_applications
-            """
-        ).fetchone()
-    assert row[0] == "mp.office@example.test"
-    assert row[1:3] == ("mp", "pending")
-    assert row[4] == "pending-user-id"
-    assert "correct horse battery staple" not in repr(row)
-    document = __import__("json").loads(row[3])[0]
-    stored = tmp_path / "application_documents" / document["stored_name"]
-    assert stored.read_bytes() == b"%PDF-1.7 test"
-
-
-def test_official_registration_does_not_require_a_proof_document(
-    monkeypatch, tmp_path
-):
-    monkeypatch.setattr(
-        "web_app.provision_pending_keycloak_account",
-        lambda email, full_name, password, profile: "pending-ministry-user",
+        "web_app.provision_self_service_keycloak_account",
+        lambda email, full_name, password, profile, role: created.append(
+            (email, full_name, password, profile, role)
+        ) or "keycloak-user-id",
     )
     app = create_test_app(tmp_path)
     client = app.test_client()
     token = registration_token(client)
 
     response = client.post(
-        "/api/account-applications",
-        data={
-            "role": "ministry",
-            "email": "officer@example.test",
-            "full_name": "Example Officer",
-            "phone": "+91 1234567890",
-            "password": "secure ministry password",
-            "password_confirmation": "secure ministry password",
-            "department": "Example ministry",
-            "designation": "Programme Officer",
-        },
-        headers={
-            "Origin": "http://localhost:5000",
-            "X-CSRF-Token": token,
-        },
-        content_type="multipart/form-data",
+        "/api/accounts",
+        data=registration_payload(),
+        headers={"Origin": "http://localhost:5000", "X-CSRF-Token": token},
     )
 
     assert response.status_code == 201
+    assert response.json["status"] == "created"
+    assert response.json["role"] == "citizen"
+    assert "Verify your email" in response.json["message"]
+    assert created[0][0:2] == ("person@example.test", "Example Person")
+    assert created[0][2] == "correct horse battery staple"
+    assert created[0][4] == "citizen"
     with sqlite3.connect(app.config["APPLICATION_DATABASE"]) as connection:
-        row = connection.execute(
-            "SELECT status, documents_json FROM account_applications"
-        ).fetchone()
-    assert row == ("pending", "[]")
+        assert connection.execute(
+            "SELECT COUNT(*) FROM account_applications"
+        ).fetchone()[0] == 0
 
 
-def test_registration_rejects_missing_csrf_and_invalid_role(tmp_path):
+def test_registration_immediately_assigns_the_selected_official_role(
+    monkeypatch, tmp_path
+):
+    created = []
+    monkeypatch.setattr(
+        "web_app.provision_self_service_keycloak_account",
+        lambda email, full_name, password, profile, role: created.append(
+            (email, role, profile)
+        ) or "keycloak-official-id",
+    )
     client = create_test_app(tmp_path).test_client()
-    registration_token(client)
+    token = registration_token(client)
 
     response = client.post(
-        "/api/account-applications",
-        data={"role": "application_reviewer"},
-        headers={"Origin": "http://localhost:5000"},
+        "/api/accounts",
+        data=registration_payload(
+            "ministry",
+            email="officer@example.test",
+            department="Example ministry",
+            designation="Programme Officer",
+        ),
+        headers={"Origin": "http://localhost:5000", "X-CSRF-Token": token},
     )
 
-    assert response.status_code == 403
+    assert response.status_code == 201
+    assert created[0][1] == "ministry"
+    assert created[0][2]["department"] == "Example ministry"
+
+
+def test_registration_requires_csrf_and_rejects_reviewer_role(tmp_path):
+    client = create_test_app(tmp_path).test_client()
+    token = registration_token(client)
+
+    missing_csrf = client.post(
+        "/api/accounts",
+        data=registration_payload(),
+        headers={"Origin": "http://localhost:5000"},
+    )
+    invalid_role = client.post(
+        "/api/accounts",
+        data=registration_payload("application_reviewer"),
+        headers={"Origin": "http://localhost:5000", "X-CSRF-Token": token},
+    )
+
+    assert missing_csrf.status_code == 403
+    assert invalid_role.status_code == 400
 
 
 def test_registration_rejects_password_mismatch_before_provisioning(
@@ -663,40 +593,22 @@ def test_registration_rejects_password_mismatch_before_provisioning(
         raise AssertionError("Keycloak must not be called for mismatched passwords.")
 
     monkeypatch.setattr(
-        "web_app.provision_pending_keycloak_account", unexpected_provision
+        "web_app.provision_self_service_keycloak_account", unexpected_provision
     )
-    app = create_test_app(tmp_path)
-    client = app.test_client()
-    csrf_token = registration_token(client)
+    client = create_test_app(tmp_path).test_client()
+    token = registration_token(client)
 
     response = client.post(
-        "/api/account-applications",
-        data={
-            "role": "contractor",
-            "email": "builder@example.test",
-            "full_name": "Example Builder",
-            "phone": "+91 1111111111",
-            "password": "first secure password",
-            "password_confirmation": "different secure password",
-            "company_name": "Example Construction",
-            "business_registration": "GST123",
-        },
-        headers={
-            "Origin": "http://localhost:5000",
-            "X-CSRF-Token": csrf_token,
-        },
-        content_type="multipart/form-data",
+        "/api/accounts",
+        data=registration_payload(password_confirmation="a different password"),
+        headers={"Origin": "http://localhost:5000", "X-CSRF-Token": token},
     )
 
     assert response.status_code == 400
-    assert "passwords do not match" in response.get_json()["error"]
-    with sqlite3.connect(app.config["APPLICATION_DATABASE"]) as connection:
-        assert connection.execute(
-            "SELECT COUNT(*) FROM account_applications"
-        ).fetchone()[0] == 0
+    assert "passwords do not match" in response.json["error"]
 
 
-def test_pending_keycloak_account_starts_disabled_and_keeps_password_out_of_sqlite(
+def test_self_service_keycloak_account_is_enabled_email_verified_and_role_assigned(
     tmp_path, monkeypatch
 ):
     calls = []
@@ -708,216 +620,35 @@ def test_pending_keycloak_account_starts_disabled_and_keeps_password_out_of_sqli
             return [], {}
         if method == "POST" and path == "users":
             return None, {"Location": "https://idp.example/admin/users/new-user-id"}
+        if method == "GET" and path == "roles/ministry":
+            return {"name": "ministry"}, {}
+        if method == "POST" and path == "users/new-user-id/role-mappings/realm":
+            return None, {}
+        if method == "PUT" and path == "users/new-user-id/execute-actions-email":
+            return None, {}
         raise AssertionError(f"Unexpected Keycloak request: {method} {path}")
 
     monkeypatch.setattr("web_app.keycloak_admin_request", fake_admin_request)
     app = create_test_app(tmp_path)
-    from web_app import provision_pending_keycloak_account
+    from web_app import provision_self_service_keycloak_account
 
     with app.app_context():
-        user_id = provision_pending_keycloak_account(
+        user_id = provision_self_service_keycloak_account(
             "person@example.test",
             "Example Person",
             "one time secure password",
             {"state": "Example State"},
+            "ministry",
         )
 
     assert user_id == "new-user-id"
-    create_user = calls[-1][2]
-    assert create_user["enabled"] is False
+    create_user = next(payload for method, path, payload in calls if path == "users")
+    assert create_user["enabled"] is True
     assert create_user["emailVerified"] is False
+    assert create_user["requiredActions"] == ["VERIFY_EMAIL"]
     assert create_user["credentials"][0]["value"] == "one time secure password"
-    with sqlite3.connect(app.config["APPLICATION_DATABASE"]) as connection:
-        rows = connection.execute(
-            "SELECT sql FROM sqlite_master WHERE type = 'table'"
-        ).fetchall()
-        applications = connection.execute(
-            "SELECT * FROM account_applications"
-        ).fetchall()
-    assert "password" not in " ".join(row[0] for row in rows).casefold()
-    assert applications == []
-
-
-def test_keycloak_approval_assigns_role_before_enabling_account(
-    tmp_path, monkeypatch
-):
-    calls = []
-    monkeypatch.setattr("web_app.keycloak_admin_token", lambda: "test-token")
-
-    def fake_admin_request(token, method, path, payload=None):
-        calls.append((method, path, payload))
-        if method == "GET" and path == "users/user-id":
-            return {
-                "id": "user-id",
-                "enabled": False,
-                "emailVerified": False,
-                "attributes": {"portal_application_pending": ["true"]},
-            }, {}
-        if method == "GET" and path == "roles/mp":
-            return {"name": "mp"}, {}
-        if method == "GET" and path == "users/user-id/role-mappings/realm":
-            return [], {}
-        if method == "POST" and path == "users/user-id/role-mappings/realm":
-            return None, {}
-        if method == "PUT" and path == "users/user-id":
-            return None, {}
-        raise AssertionError(f"Unexpected Keycloak request: {method} {path}")
-
-    monkeypatch.setattr("web_app.keycloak_admin_request", fake_admin_request)
-    app = create_test_app(tmp_path)
-    from web_app import approve_pending_keycloak_account
-
-    with app.app_context():
-        approve_pending_keycloak_account(
-            "user-id", "mp", {"constituency": "Example North"}
-        )
-
-    assert calls[-2][0:2] == ("POST", "users/user-id/role-mappings/realm")
-    update = calls[-1][2]
-    assert update["enabled"] is True
-    assert update["emailVerified"] is True
-    assert "portal_application_pending" not in update["attributes"]
-    assert update["attributes"]["constituency"] == ["Example North"]
-
-
-def test_application_reviews_require_reviewer_claim(tmp_path):
-    client = create_test_app(tmp_path).test_client()
-
-    assert client.get("/admin/applications").status_code == 403
-    assert client.get("/api/admin/applications").status_code == 403
-
-
-def test_reviewer_can_preview_and_approve_application(tmp_path, monkeypatch):
-    approved = []
-    monkeypatch.setattr(
-        "web_app.provision_pending_keycloak_account",
-        lambda email, full_name, password, profile: "pending-ministry-user",
-    )
-    monkeypatch.setattr(
-        "web_app.approve_pending_keycloak_account",
-        lambda user_id, role, profile: approved.append((user_id, role, profile)),
-    )
-    app = create_test_app(tmp_path)
-    client = app.test_client()
-    csrf_token = registration_token(client)
-    submitted = client.post(
-        "/api/account-applications",
-        data={
-            "role": "ministry",
-            "email": "officer@example.test",
-            "full_name": "Example Officer",
-            "phone": "+91 1111111111",
-            "password": "officer secure password",
-            "password_confirmation": "officer secure password",
-            "department": "Example ministry",
-            "designation": "Programme Officer",
-            "documents": (BytesIO(b"%PDF-1.7 verification"), "official-proof.pdf"),
-        },
-        headers={
-            "Origin": "http://localhost:5000",
-            "X-CSRF-Token": csrf_token,
-        },
-        content_type="multipart/form-data",
-    )
-    assert submitted.status_code == 201
-    application_id = submitted.get_json()["application_id"]
-
-    with client.session_transaction() as stored:
-        stored["identity"] = {
-            "role": "application_reviewer",
-            "subject": "reviewer-subject",
-            "email": "reviewer@example.test",
-            "roles": ["application_reviewer"],
-        }
-
-    page = client.get("/admin/applications")
-    listings = client.get("/api/admin/applications?status=pending").get_json()
-    document = listings["applications"][0]["documents"][0]
-    previewed = client.get(document["url"])
-    downloaded = client.get(document["url"] + "?download=1")
-    decision = client.post(
-        f"/api/admin/applications/{application_id}/decision",
-        json={"status": "approved", "note": "Verified through official channels."},
-        headers={
-            "Origin": "http://localhost:5000",
-            "X-CSRF-Token": csrf_token,
-        },
-    )
-
-    assert page.status_code == 200
-    assert page.headers["Cache-Control"] == "no-store"
-    assert len(listings["applications"]) == 1
-    assert "keycloak_user_id" not in listings["applications"][0]
-    assert "stored_name" not in document
-    assert b"Supporting documents are optional." in page.data
-    assert previewed.data == b"%PDF-1.7 verification"
-    assert previewed.mimetype == "application/pdf"
-    assert previewed.headers["Content-Disposition"].startswith("inline")
-    assert downloaded.headers["Content-Disposition"].startswith("attachment")
-    assert decision.status_code == 200
-    assert "applicant can sign in" in decision.get_json()["message"]
-    assert len(approved) == 1
-    assert approved[0][0:2] == ("pending-ministry-user", "ministry")
-    assert approved[0][2]["department"] == "Example ministry"
-
-
-def test_reviewer_rejection_removes_pending_keycloak_account(tmp_path, monkeypatch):
-    deleted = []
-    monkeypatch.setattr(
-        "web_app.provision_pending_keycloak_account",
-        lambda email, full_name, password, profile: "pending-builder-user",
-    )
-    monkeypatch.setattr(
-        "web_app.delete_pending_keycloak_account",
-        lambda user_id: deleted.append(user_id),
-    )
-    app = create_test_app(tmp_path)
-    client = app.test_client()
-    csrf_token = registration_token(client)
-    submitted = client.post(
-        "/api/account-applications",
-        data={
-            "role": "contractor",
-            "email": "builder@example.test",
-            "full_name": "Example Builder",
-            "phone": "+91 1111111111",
-            "password": "builder secure password",
-            "password_confirmation": "builder secure password",
-            "company_name": "Example Construction",
-            "business_registration": "GST123",
-        },
-        headers={
-            "Origin": "http://localhost:5000",
-            "X-CSRF-Token": csrf_token,
-        },
-        content_type="multipart/form-data",
-    )
-    assert submitted.status_code == 201
-    application_id = submitted.get_json()["application_id"]
-    with client.session_transaction() as stored:
-        stored["identity"] = {
-            "role": "application_reviewer",
-            "subject": "reviewer-subject",
-            "email": "reviewer@example.test",
-            "roles": ["application_reviewer"],
-        }
-
-    rejected = client.post(
-        f"/api/admin/applications/{application_id}/decision",
-        json={"status": "rejected", "note": "The submitted document could not be verified."},
-        headers={
-            "Origin": "http://localhost:5000",
-            "X-CSRF-Token": csrf_token,
-        },
-    )
-
-    assert rejected.status_code == 200
-    assert deleted == ["pending-builder-user"]
-    with sqlite3.connect(app.config["APPLICATION_DATABASE"]) as connection:
-        assert connection.execute(
-            "SELECT status FROM account_applications WHERE id = ?",
-            (application_id,),
-        ).fetchone()[0] == "rejected"
+    assert ("POST", "users/new-user-id/role-mappings/realm", [{"name": "ministry"}]) in calls
+    assert ("PUT", "users/new-user-id/execute-actions-email", ["VERIFY_EMAIL"]) in calls
 
 
 def project_identity(client, role, subject, email, **profile):
@@ -1096,6 +827,95 @@ def test_public_project_summaries_are_read_only_and_hide_private_fields(tmp_path
     assert "reports" not in public_project
     assert "messages" not in public_project
     assert public_client.post("/api/public/projects").status_code == 405
+
+
+def test_public_history_page_and_exports_are_available_without_login(tmp_path):
+    app = create_test_app(tmp_path)
+    export_directory = tmp_path / "source_exports"
+    export_directory.mkdir()
+    app.config["HISTORICAL_WORKS_DIRECTORY"] = str(export_directory)
+    with (export_directory / "mplads_completed_works_2026-10-24.csv").open(
+        "w", encoding="utf-8", newline=""
+    ) as output:
+        writer = csv.writer(output)
+        writer.writerow(
+            [
+                "Work ID",
+                "Work Description",
+                "Category",
+                "MP Name",
+                "Constituency",
+                "State",
+                "House",
+                "Final Amount (₹)",
+                "Completed Date",
+                "Has Images",
+                "Average Rating",
+                "IDA",
+            ]
+        )
+        writer.writerows(
+            [
+                [
+                    "A1",
+                    "Village health centre",
+                    "Health",
+                    "MP One",
+                    "Central",
+                    "Example State",
+                    "Lok Sabha",
+                    "100000",
+                    "2025-01-01",
+                    "No",
+                    "",
+                    "District Collector",
+                ],
+                [
+                    "B2",
+                    "Village road",
+                    "Roads",
+                    "MP Two",
+                    "Central",
+                    "Other State",
+                    "Lok Sabha",
+                    "250000",
+                    "2025-01-02",
+                    "No",
+                    "",
+                    "Other Collector",
+                ],
+            ]
+        )
+
+    client = app.test_client()
+    page = client.get("/view-history")
+    response = client.get("/api/public/history?dataset=completed")
+    filtered = client.get(
+        "/api/public/history?dataset=completed&state=Example%20State&search=health"
+    )
+
+    assert page.status_code == 200
+    assert b"View History" in page.data
+    assert client.get("/assets/css/view-history.css").status_code == 200
+    assert client.get("/assets/js/view-history.js").status_code == 200
+    assert response.status_code == 200
+    assert response.headers["Cache-Control"].startswith("public")
+    assert response.json["total"] == 2
+    assert response.json["columns"][0] == "Work ID"
+    assert response.json["records"][0]["Work Description"] == "Village health centre"
+    assert response.json["amount_total"] == 350000
+    assert response.json["states"] == ["Example State", "Other State"]
+    assert filtered.json["total"] == 1
+    assert filtered.json["records"][0]["Work ID"] == "A1"
+
+
+def test_public_history_rejects_unknown_dataset_and_handles_missing_exports(tmp_path):
+    app = create_test_app(tmp_path)
+    app.config["HISTORICAL_WORKS_DIRECTORY"] = str(tmp_path / "empty_exports")
+    client = app.test_client()
+
+    assert client.get("/api/public/history?dataset=private").status_code == 400
+    assert client.get("/api/public/history?dataset=completed").status_code == 503
 
 
 def test_contractor_report_is_shared_with_authorities_and_photo_is_private(tmp_path):

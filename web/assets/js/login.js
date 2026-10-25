@@ -63,7 +63,7 @@
     authMessage.classList.add("is-error");
   } else if (error === "provider") {
     authMessage.textContent =
-      "Sign-in could not be completed. Check that the identity provider is available and try again.";
+      "The sign-in service is unavailable. Start or restore Keycloak, then try again.";
     authMessage.classList.add("is-error");
   }
 

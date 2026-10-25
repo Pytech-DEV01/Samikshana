@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Request an MPLADS portal account.">
+  <meta name="description" content="Create an MPLADS portal account.">
   <meta name="csrf-token" content="">
-  <title>Sahayog · Request account</title>
+  <title>Sahayog · Create account</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -22,8 +22,8 @@
     <section class="registration-card" aria-labelledby="registrationTitle">
       <header class="registration-heading">
         <p class="eyebrow">ACCOUNT ACCESS</p>
-        <h1 id="registrationTitle">Request an account</h1>
-        <p>Choose your specific official account type and submit details for review. Authority accounts retain their approved MP, State, Nodal, or District scope. Your account remains pending until an authorized reviewer checks your information.</p>
+        <h1 id="registrationTitle">Create your account</h1>
+        <p>Create an account and choose the role that matches your work. Verify your email address to sign in.</p>
       </header>
 
       <form id="registrationForm">
@@ -32,6 +32,7 @@
             <span>Account type <b>*</b></span>
             <select id="role" name="role" required>
               <option value="">Choose account type</option>
+              <option value="citizen">Citizen / Public User</option>
               <option value="mp">MP / MP office</option>
               <option value="contractor">Contractor</option>
               <option value="state_authority">State authority</option>
@@ -56,7 +57,7 @@
           <label class="registration-field" for="password">
             <span>Password <b>*</b></span>
             <input id="password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required>
-            <small>Use 12–128 characters. Your password is sent to Keycloak and is never saved with the application.</small>
+            <small>Use 12–128 characters. Your password is sent securely to the sign-in service and is never stored by this website.</small>
           </label>
           <label class="registration-field" for="passwordConfirmation">
             <span>Confirm password <b>*</b></span>
@@ -112,19 +113,14 @@
             </div>
           </div>
 
-          <label class="registration-field registration-field--full" for="documents">
-            <span>Supporting documents (optional)</span>
-            <input id="documents" name="documents" type="file" accept=".pdf,.png,.jpg,.jpeg" multiple>
-            <small>You may attach supporting proof if available (PDF, PNG, or JPEG; up to five files, 5 MB each). A document is not required to submit your account request.</small>
-          </label>
         </div>
 
         <div class="registration-notice" id="registrationNotice" role="status">
-          Your password is securely provisioned in Keycloak. Your account stays disabled until an authorized reviewer reviews and approves your application.
+          After creating your account, follow the email verification link before signing in.
         </div>
         <p class="registration-error" id="registrationError" role="alert" hidden></p>
         <button class="submit registration-submit" id="registrationSubmit" type="submit">
-          <span class="submit-label">Submit account request</span>
+          <span class="submit-label">Create account</span>
           <span class="submit-trail" aria-hidden="true"><span class="submit-arrow">→</span></span>
         </button>
         <input type="hidden" name="csrf_token" value="">

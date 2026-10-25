@@ -21,7 +21,7 @@
       label: "MP / State / Nodal / District Authority",
       access: "Official access",
       accessCopy:
-        "Sign in with your approved official account. Your assigned MP, State, Nodal, or District permissions determine the data and actions available.",
+        "Sign in with your official account. Your account role determines the project data and actions available.",
       description: "Access your assigned official MPLADS workspace."
     },
     contractor: {
@@ -68,14 +68,6 @@
         "Review national programme information under your approved ministry account.",
       description: "Review national MPLADS programme information."
     },
-    application_reviewer: {
-      key: "application_reviewer",
-      label: "Account Reviewer",
-      shortName: "Account Reviewer",
-      access: "Application review",
-      accessCopy: "Review account applications and supporting documents.",
-      description: "Review Sahayog account applications."
-    }
   };
 
   function getSession() {

@@ -27,7 +27,6 @@
           visible && (requiredFields[selected] || []).includes(field.id);
       });
     });
-    document.getElementById("documents").required = false;
   }
 
   roleSelect.addEventListener("change", updateRoleFields);
@@ -44,9 +43,9 @@
     }
 
     submitButton.disabled = true;
-    submitButton.querySelector(".submit-label").textContent = "Submitting request…";
+    submitButton.querySelector(".submit-label").textContent = "Creating account…";
     try {
-      const response = await fetch("/api/account-applications", {
+      const response = await fetch("/api/accounts", {
         method: "POST",
         credentials: "same-origin",
         headers: { "X-CSRF-Token": csrfToken },
@@ -54,23 +53,22 @@
       });
       const result = await response.json();
       if (!response.ok) {
-        throw new Error(result.error || "The account request could not be submitted.");
+        throw new Error(result.error || "The account could not be created.");
       }
 
       form.hidden = true;
       notice.classList.add("is-success");
-      notice.textContent =
-        `Request submitted. Reference: ${result.application_id}. Your account is pending reviewer approval. You can sign in with this email and password after approval.`;
+      notice.textContent = result.message;
       const footerLink = document.createElement("a");
       footerLink.href = "/";
-      footerLink.textContent = "Return to sign in";
+      footerLink.textContent = "Go to sign in";
       document.querySelector(".registration-footer").replaceChildren(footerLink);
     } catch (error) {
       errorBox.textContent = error.message;
       errorBox.hidden = false;
       submitButton.disabled = false;
       submitButton.querySelector(".submit-label").textContent =
-        "Submit account request";
+        "Create account";
     }
   });
 

@@ -1,5 +1,11 @@
 .env
+.env.*
+!.env.example
 instance/
+*.sqlite
+*.sqlite3
+*.db
+cookies.txt
 __pycache__/
 *.py[cod]
 .pytest_cache/

@@ -1,0 +1,17 @@
+GitHub repository description
+-----------------------------
+Sahayog is a Flask-based MPLADS project monitoring prototype with public
+project dashboards, Keycloak sign-in, role-aware project workflows, contractor
+progress reporting, optional Supabase storage, and a Python risk-review
+pipeline.
+
+Suggested GitHub topics
+-----------------------
+mplads, flask, python, project-monitoring, public-dashboard, keycloak,
+supabase, risk-assessment
+
+Privacy reminder
+----------------
+Do not publish credentials, .env files, databases, uploaded documents, or
+private user/project records. Review all already-tracked data and generated
+files before pushing; .gitignore does not hide files already tracked by Git.

@@ -135,25 +135,3 @@ MPLADS/
 ├── reports/                # Risk assessment output
 └── AUTHENTICATION.md       # Sign-in, storage, migration, and deployment guide
 ```
-
-## Privacy and GitHub publishing
-
-- Never commit `.env`, database files, uploaded documents, authentication
-  cookies, access tokens, passwords, private keys, or production credentials.
-  The `.gitignore` rules help keep local environment files and databases out
-  of future commits.
-- The repository currently includes files under `data/`, `models/`, and
-  `reports/`, as well as a Keycloak realm configuration. Review their content,
-  source, reuse terms, and any personal or confidential information before
-  publishing. Ignore rules do **not** remove files that Git already tracks.
-- Before pushing, inspect `git status` and the files that will be committed.
-  If a secret has already been pushed, remove it from the repository history
-  and rotate/revoke it; deleting it in a later commit is not enough.
-- Public dashboard data is visible to anyone who can access the site. Do not
-  put private contractor reports, user records, or confidential project data
-  into public assets or source exports.
-
-## License
-
-No project license is specified in this repository yet. Add a license before
-granting others permission to reuse or redistribute the project.
